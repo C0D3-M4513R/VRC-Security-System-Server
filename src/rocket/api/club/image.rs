@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 use std::cmp::min;
+use std::sync::LazyLock;
+use rocket::Request;
 use crate::rocket::{AskamaWrapper, ETag, IfNoneMatch, Response};
 use crate::rocket::auth::discord::{AuthErr, JWT};
 use crate::modals::err::Err;
@@ -8,9 +10,23 @@ use crate::rocket::api::club::Permissions;
 pub struct Upload<'r> {
     file: rocket::fs::TempFile<'r>,
 }
+pub struct PutImageResponse{
+    location: String
+}
+
+#[rocket::async_trait]
+impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for PutImageResponse {
+    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
+        rocket::response::Redirect::to(self.location).respond_to(request)
+            .map(|mut v|{
+                v.adjoin_raw_header(rocket::http::hyper::header::CACHE_CONTROL.as_str(), "no-cache");
+                v
+            })
+    }
+}
 
 #[rocket::post("/api/club/<club>/image/<name>", format="multipart/form-data", data = "<data>")]
-pub async fn put_image(auth: Result<JWT, AuthErr>, club: &str, name: &str, data: rocket::form::Form<Upload<'_>>) -> Response<rocket::response::Redirect> {
+pub async fn put_image(auth: Result<JWT, AuthErr>, club: &str, name: &str, data: rocket::form::Form<Upload<'_>>) -> Response<PutImageResponse> {
     let auth = match auth {
         Ok(jwt) => jwt,
         Err(err) => return Response::AuthErr(err),
@@ -138,20 +154,22 @@ pub async fn put_image(auth: Result<JWT, AuthErr>, club: &str, name: &str, data:
 
         image
     };
+
+    let redir_url = format!("/clubs/{club}");
+    let redir = Response::Redirect(rocket::response::Redirect::to(redir_url.clone()));
     let db = crate::get_db().await;
     let table = match match name {
-        "Logo.png" => sqlx::query!("SELECT change_logo($1, $2, $3)", auth.get_user_id().cast_signed(), club, bytes),
-        "Poster1.png" => sqlx::query!("SELECT change_poster1($1, $2, $3)", auth.get_user_id().cast_signed(), club, bytes),
-        "Poster2.png" => sqlx::query!("SELECT change_poster2($1, $2, $3)", auth.get_user_id().cast_signed(), club, bytes),
-        "Poster3.png" => sqlx::query!("SELECT change_poster3($1, $2, $3)", auth.get_user_id().cast_signed(), club, bytes),
+        "Logo.png" => sqlx::query!(r#"SELECT change_logo($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
+        "Poster1.png" => sqlx::query!(r#"SELECT change_poster1($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
+        "Poster2.png" => sqlx::query!(r#"SELECT change_poster2($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
+        "Poster3.png" => sqlx::query!(r#"SELECT change_poster3($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
         _ => return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err {
             error: Cow::Borrowed("Invalid image name"),
             error_description: None,
         }))),
-    }.execute(&db)
-        .await
-    {
-        Ok(v) => v,
+    }{
+        Ok(Some(v)) => v,
+        Ok(None) => return redir,
         Err(err) => {
             tracing::error!("Failed to update Image: {err}");
             return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
@@ -161,46 +179,20 @@ pub async fn put_image(auth: Result<JWT, AuthErr>, club: &str, name: &str, data:
         }
     };
 
-    let redir = Response::Ok(rocket::response::Redirect::to(format!("/clubs/{club}")));
-    match table.rows_affected() {
-        0 => {},
-        1 => return redir,
-        affected => {
-            tracing::error!("Image update query affected more than 1 row? {affected}");
-            return redir
-        }
-    }
-/*
-if false {
-    let target_branch_name = format!("autopr/club/{club}");
-    let commit_message = format!("Club: Update {name} for {club}");
-    let repo = repo.inner().clone().lock_owned().await;
-    match tokio::task::spawn_blocking(move || {
-        crate::git::push::push_file(
-            &*repo,
-            bytes.as_slice(),
-            &target_branch_name,
-            &club,
-            &name,
-            &commit_message,
-        )
-    }).await {
-        Ok(Ok(())) => {},
-        Ok(Err(err)) => return Response::Err((rocket::http::Status::InternalServerError, err)),
-        Err(err) => return Response::Err((rocket::http::Status::InternalServerError, Cow::Owned(format!("Error Updating Repo: {err}")))),
-    }
-}
-*/
-    redir
+    Response::Ok(PutImageResponse{
+        location: redir_url,
+    })
 }
 
 pub const PLACEHOLDER_PNG:&[u8] = include_bytes!("../../../../1x1-00000000.png");
 pub const PLACEHOLDER_PNG_SHA3_512:&[u8] = include_bytes!("../../../../1x1-00000000.png.sha3-512");
-pub const PLACEHOLDER_PNG_ETAG:ETag<'static> = ETag {
+
+pub static PLACEHOLDER_PNG_ETAG:LazyLock<ETag<'static>> = LazyLock::new(||ETag {
     status: rocket::http::Status::Ok,
     data: Some(Cow::Borrowed(PLACEHOLDER_PNG)),
     sha3_512: Cow::Borrowed(PLACEHOLDER_PNG_SHA3_512),
-};
+    header: rocket::http::HeaderMap::new()
+});
 
 #[rocket::get("/api/club/<club>/image/<name>")]
 pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str, name: &str) -> Response<(rocket::http::ContentType, ETag<'static>)> {
@@ -215,6 +207,7 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
                 status: rocket::http::Status::Ok,
                 data: Some(Cow::Owned($ident.image)),
                 sha3_512: Cow::Owned($ident.digest),
+                header: Default::default(),
             }
         };
         (etag, $ident:ident) => {
@@ -222,10 +215,24 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
                 status: rocket::http::Status::Ok,
                 data: None,
                 sha3_512: Cow::Owned($ident.digest),
+                header: Default::default(),
             }
         };
     }
     for i in etag.0 {
+        let resp = |i|{
+            let mut header = rocket::http::HeaderMap::new();
+            header.add_raw(rocket::http::hyper::header::CACHE_CONTROL.as_str(), "no-cache");
+            Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), ETag{
+                status: rocket::http::Status::Ok,
+                data: None,
+                sha3_512: Cow::Owned(i),
+                header,
+            }))
+        };
+        if i == PLACEHOLDER_PNG_SHA3_512 {
+            return resp(i);
+        }
         match match name {
             "Logo.png" => sqlx::query!(r#"SELECT true as dummy FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
             "Poster1.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
@@ -236,11 +243,7 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
                 error_description: None,
             }))),
         }{
-            Ok(Some(())) => return Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), ETag{
-                status: rocket::http::Status::Ok,
-                data: None,
-                sha3_512: Cow::Owned(i),
-            })),
+            Ok(Some(())) => return resp(i),
             Ok(None) => {},
             Err(err) => {
                 tracing::error!("Failed to get Image: {err}");
@@ -251,7 +254,7 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
             }
         }
     }
-    match match name {
+    let mut etag:ETag = match match name {
         "Logo.png" => sqlx::query!(r#"SELECT image, digest FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
         "Poster1.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
         "Poster2.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster2 INNER JOIN club ON club_poster2.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
@@ -261,14 +264,17 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
             error_description: None,
         }))),
     }{
-        Ok(Some(v)) => Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), v)),
-        Ok(None) => Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), PLACEHOLDER_PNG_ETAG)),
+        Ok(Some(v)) => v,
+        Ok(None) => PLACEHOLDER_PNG_ETAG.clone(),
         Err(err) => {
             tracing::error!("Failed to get Image: {err}");
-            Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
+            return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed get Image from DB"),
                 error_description: Some(err.to_string().into()),
-            })))
+            })));
         }
-    }
+    };
+
+    etag.header.add_raw(rocket::http::hyper::header::CACHE_CONTROL.as_str(), "no-cache");
+    Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), etag))
 }

@@ -39,18 +39,41 @@ impl<'r, 'o:'r, T: askama::Template + 'r> ::rocket::response::Responder<'r, 'o> 
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ETag<'a> {
-    status: rocket::http::Status,
-    data: Option<Cow<'a, [u8]>>,
-    sha3_512: Cow<'a, [u8]>,
+    pub status: rocket::http::Status,
+    pub data: Option<Cow<'a, [u8]>>,
+    pub sha3_512: Cow<'a, [u8]>,
+    pub header: rocket::http::HeaderMap<'a>
+}
+#[rocket::async_trait]
+impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for &'o ETag<'o> {
+    fn respond_to(self, _: &'r Request<'_>) -> rocket::response::Result<'o> {
+        let mut response = rocket::response::Response::new();
+        let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
+        for header in self.header.iter() {
+            response.adjoin_header(header);
+        }
+        response.set_status(self.status);
+        response.adjoin_header(rocket::http::Header::new("ETag", format!("sha3_512-{header_base64}")));
+        if let Some(data) = self.data.as_ref() {
+            response.set_sized_body(data.len(), std::io::Cursor::new(data));
+        } else {
+            response.set_status(rocket::http::Status::NotModified);
+        }
+        Ok(response)
+    }
 }
 #[rocket::async_trait]
 impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for ETag<'o> {
     fn respond_to(self, _: &'r Request<'_>) -> rocket::response::Result<'o> {
         let mut response = rocket::response::Response::new();
         let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
-        response.adjoin_header(rocket::http::Header::new("ETag", format!("sha3_512-{header_base64}")));
+        for header in self.header.into_iter() {
+            response.adjoin_header(header);
+        }
         response.set_status(self.status);
+        response.adjoin_header(rocket::http::Header::new("ETag", format!("sha3_512-{header_base64}")));
         if let Some(data) = self.data {
             response.set_sized_body(data.len(), std::io::Cursor::new(data));
         } else {
@@ -98,5 +121,6 @@ impl<'r> rocket::request::FromRequest<'r> for IfNoneMatch {
 pub enum Response<T> {
     Ok(T),
     AuthErr(AuthErr),
+    Redirect(rocket::response::Redirect),
     Error((rocket::http::Status, AskamaWrapper<crate::modals::err::Err<'static>>)),
 }
