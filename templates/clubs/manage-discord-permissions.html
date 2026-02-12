@@ -52,16 +52,15 @@
                     {% endmatch %}
                 ></label><br>
                 <label>Level allowed to add VRC Names on:<input type="number" name="add_level"
-                    {% if let Some(add_level) = information.permissions.add_level %}
-                        min="{{add_level}}" max="{{limits.max_permission_level}}"
-                        {% if let Some(cur_add_level) = permission.permission.add_level %}
-                             value="{{cur_add_level}}"
-                        {% else %}
-                            value="{{limits.max_permission_level}}"
-                        {% endif %}
-                    {% else %}
-                        disabled
-                    {% endif %}
+                    max="{{information.limits.max_permission_level}}"
+                    {% match (permission.permission.add_level,information.permissions.add_level)  %}
+                        {% when (None, None) %} disabled
+                        {% when (Some(v), None) %} disabled value="{{v}}"
+                        {% when (None, Some(v)) %} min="{{v}}" value="{{v}}"
+                        {% when (Some(target), Some(slf)) %}
+                            value="{{target}}"
+                            {% if target < slf %} disabled {% else %} min="{{slf}}" {% endif %}
+                    {% endmatch %}
                 ></label><br><br>
                 <label>Disable Removing VRC Names to the Permission List:<input type="checkbox" name="remove_level" value="null"
                     {% match (permission.permission.remove_level,information.permissions.remove_level)  %}
@@ -72,16 +71,15 @@
                     {% endmatch %}
                     ></label><br>
                 <label>Level allowed to remove VRC Names on:<input type="number" name="remove_level"
-                    {% if let Some(remove_level) = information.permissions.remove_level %}
-                        min="{{remove_level}}" max="{{limits.max_permission_level}}"
-                        {% if let Some(cur_remove_level) = permission.permission.remove_level %}
-                            value="{{cur_remove_level}}"
-                        {% else %}
-                            value="{{limits.max_permission_level}}"
-                        {% endif %}
-                    {% else %}
-                        disabled
-                    {% endif %}
+                    max="{{information.limits.max_permission_level}}"
+                    {% match (permission.permission.remove_level,information.permissions.remove_level)  %}
+                    {% when (None, None) %} disabled
+                    {% when (Some(v), None) %} disabled value="{{v}}"
+                    {% when (None, Some(v)) %} min="{{v}}" value="{{v}}"
+                    {% when (Some(target), Some(slf)) %}
+                        value="{{target}}"
+                        {% if target < slf %} disabled {% else %} min="{{slf}}" {% endif %}
+                    {% endmatch %}
                 ></label><br><br>
                 <label>Allowed to Update Club Logo:<input type="checkbox" name="update_logo" {% if permission.permission.update_logo %}checked{% endif %} {% if !information.permissions.update_logo %}disabled{% endif %}></label><br>
                 <label>Allowed to Update Club Poster1:<input type="checkbox" name="update_poster1" {% if permission.permission.update_poster1 %}checked{% endif %} {% if !information.permissions.update_poster1 %}disabled{% endif %}></label><br>
@@ -96,19 +94,31 @@
                     {% endmatch %}
                 ></label><br>
                 <label>Manage Level:<input type="number" name="manage_permissions"
+                    max="{{information.limits.max_manage_permission_level}}"
                     {% match (permission.permission.manage_permissions,information.permissions.manage_permissions)  %}
-                        {% when (_, None) %} disabled
-                        {% when (None, Some(perm)) %} min="{{perm + 1}}" max="{{limits.max_manage_permission_level}}" value="{{perm + 1}}"
+                        {% when (None, None) %} disabled
+                        {% when (Some(v), None) %} disabled value="{{v}}"
+                        {% when (None, Some(perm)) %} min="{{perm + 1}}" value="{{perm + 1}}"
                         {% when (Some(target), Some(perm)) %}
-                            {% if target <= perm %}
-                                disabled
-                            {% else %}
-                                min="{{perm + 1}}" max="{{limits.max_manage_permission_level}}" value="{{target}}"
-                            {% endif %}
+                            value="{{target}}"
+                            {% if target <= perm %} disabled {% else %} min="{{perm + 1}}" {% endif %}
                     {% endmatch %}
                 ></label><br><br>
                 <label>Allowed to Request Update:<input type="checkbox" name="submit" {% if permission.permission.submit %}checked{% endif %} {% if !information.permissions.submit %}disabled{% endif %}></label><br><br>
                 <input type="submit" value="Update Permissions">
+            </form>
+            <form method="post" action="/api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}">
+                <input type="hidden" name="_method" value="DELETE">
+                <input type="submit" value="Remove User"
+                    {% match (permission.permission.manage_permissions,information.permissions.manage_permissions) %}
+                        {% when (_, None) %} disabled
+                        {% when (None, Some(_)) %}
+                        {% when (Some(target), Some(perm)) %}
+                            {% if target <= perm %}
+                                disabled
+                            {% endif %}
+                    {% endmatch %}
+                >
             </form>
         </td>
     </tr>

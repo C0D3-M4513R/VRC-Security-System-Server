@@ -26,11 +26,13 @@
   {% call navbar::header(self) %}{% endcall %}
   <br>
 
-  {% if permissions.submit %}
+  <h1>Important</h1>
+  <p>Any changes you make won't instantly be reflected in the club!</p>
+  <p>For your changes to be reflected in the club, you need to request an update of your Club-Information, by pressing the button below!</p>
+  <p>After pressing a button a new Pull-Request will be opened up <a href="{{limits.git_repo_visit_url}}">here</a>.</p>
   <form method="post" action="/api/club/{{path_name}}/publish">
-    <input type="submit" value="Request a Club-Update with the saved information">
-  </form><br>
-  {% endif %}
+    <input type="submit" value="Request a Club-Update with the saved information" {% if !permissions.submit %} disabled {% endif %}>
+  </form><br><br>
 
   <form method="post" action="/api/club/{{path_name}}/club_name">
     <input name="_method" type="hidden" value="put"/>

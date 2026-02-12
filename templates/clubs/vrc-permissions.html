@@ -20,7 +20,7 @@
 <form method="post" action="/api/club/{{information.path_name}}/vrcuser_level">
     <input type="hidden" name="_method" value="PUT">
     <label>VRC Name:<input type="text" name="vrc_name" required></label>
-    <label>Permission Level:<input type="number" name="permission_level" min="{{add_level}}" max="{{limits.max_permission_level}}" value="{{add_level}}" required></label>
+    <label>Permission Level:<input type="number" name="permission_level" min="{{add_level}}" max="{{information.limits.max_permission_level}}" value="{{add_level}}" required></label>
     <input type="submit" value="Add Permission">
 </form>
 <br>

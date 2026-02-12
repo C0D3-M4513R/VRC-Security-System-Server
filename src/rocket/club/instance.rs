@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use crate::Limits;
 use crate::modals::err::Err;
 use crate::modals::club_instance::ClubInstance;
 use crate::rocket::api::club::build_permission_from_res;
@@ -6,7 +7,7 @@ use crate::rocket::{AskamaWrapper, Response};
 use crate::rocket::auth::discord::{AuthErr, JWT};
 
 #[rocket::get("/clubs/<club>")]
-pub async fn get_club_instance(auth: Result<JWT, AuthErr>, club: &str) -> Response<AskamaWrapper<ClubInstance>> {
+pub async fn get_club_instance<'r>(auth: Result<JWT, AuthErr>, limits: &'r rocket::State<Limits>, club: &str) -> Response<AskamaWrapper<ClubInstance<'r>>> {
     let auth = match auth {
         Ok(a) => a,
         Err(e) => return Response::AuthErr(e),
@@ -45,5 +46,6 @@ pub async fn get_club_instance(auth: Result<JWT, AuthErr>, club: &str) -> Respon
         name: res.name,
         path_name: res.path_name,
         permissions: perms,
+        limits: &**limits,
     }))
 }

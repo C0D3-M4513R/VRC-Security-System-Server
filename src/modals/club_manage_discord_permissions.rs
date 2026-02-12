@@ -1,4 +1,3 @@
-use crate::Limits;
 use crate::rocket::api::club::Permissions;
 
 pub struct DiscordPermission {
@@ -10,8 +9,7 @@ pub struct DiscordPermission {
 }
 #[derive(askama::Template)]
 #[template(path = "clubs/manage-discord-permissions.html")]
-pub struct ClubDiscordPermissions {
-    pub information: super::club_instance::ClubInstance,
+pub struct ClubDiscordPermissions<'a> {
+    pub information: super::club_instance::ClubInstance<'a>,
     pub permissions: Vec<DiscordPermission>,
-    pub limits: Limits,
 }

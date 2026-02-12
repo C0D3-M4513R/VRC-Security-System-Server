@@ -8,7 +8,7 @@ use crate::rocket::{AskamaWrapper, Response};
 use crate::rocket::auth::discord::{AuthErr, JWT};
 
 #[rocket::get("/clubs/<club>/discord_permissions")]
-pub async fn get_club_discord_permissions(auth: Result<JWT, AuthErr>, limits: &rocket::State<Limits>, club: &str) -> Response<AskamaWrapper<ClubDiscordPermissions>> {
+pub async fn get_club_discord_permissions<'r>(auth: Result<JWT, AuthErr>, limits: &'r rocket::State<Limits>, club: &str) -> Response<AskamaWrapper<ClubDiscordPermissions<'r>>> {
     let auth = match auth {
         Ok(a) => a,
         Err(e) => return Response::AuthErr(e),
@@ -70,6 +70,7 @@ pub async fn get_club_discord_permissions(auth: Result<JWT, AuthErr>, limits: &r
             name: res.name,
             path_name: res.path_name,
             permissions: perms,
+            limits: &**limits
         },
         permissions: discord_perms.into_iter().map(|v|DiscordPermission{
             discord_id: v.discord_id.cast_unsigned(),
@@ -77,6 +78,5 @@ pub async fn get_club_discord_permissions(auth: Result<JWT, AuthErr>, limits: &r
             discord_discriminator: v.discriminator,
             permission: build_permission_from_res!(v),
         }).collect(),
-        limits: **limits,
     }))
 }

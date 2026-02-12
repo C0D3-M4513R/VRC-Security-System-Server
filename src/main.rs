@@ -6,13 +6,13 @@ mod rocket;
 mod git;
 mod modals;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct Limits {
     max_permission_level: u64,
     max_manage_permission_level: u64,
+    git_repo_visit_url: String,
 }
 
-const NEOLUMA_GIT_REPO_REMOTE_URL:&str = "git@github.com:The-Land-of-Future/TLOF-Club.git";
 #[derive(Copy, Clone)]
 pub struct Keypair {
     pub public: [u8; sphincsplus::CRYPTO_PUBLICKEYBYTES as usize],
@@ -81,9 +81,10 @@ fn main() -> ::anyhow::Result<()> {
             });
             git::auth::add_auth(&mut callbacks).map_err(|v|::anyhow::format_err!("{v}"))?;
             fetch_opts.remote_callbacks(callbacks);
+            let clone_url = std::env::var("GIT_REPO_CLONE_URL").map_err(|err|::anyhow::format_err!("Could not find GIT_REPO_CLONE_URL: {err}"))?;
             git2::build::RepoBuilder::new()
                 .fetch_options(fetch_opts)
-                .clone(NEOLUMA_GIT_REPO_REMOTE_URL, repo_path)
+                .clone(&clone_url, repo_path)
                 .map_err(|err|anyhow::format_err!("Could not clone NeoLuma Git Repo: {err}"))?
         }
         Err(err) => {
@@ -133,6 +134,10 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
                 .min(i16::MAX as u64)
         ,
         max_manage_permission_level: i32::MAX as u64,
+        git_repo_visit_url:
+            std::env::var("GIT_REPO_VISIT_URL")
+               .map_err(|err|::anyhow::format_err!("Could not find GIT_REPO_VISIT_URL: {err}"))?
+        ,
     };
 
     let rocket  = ::rocket::Rocket::build()
