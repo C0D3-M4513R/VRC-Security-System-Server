@@ -25,3 +25,6 @@ sphincsplus = { version = "0.1.0", features = ["simple", "shake", "256f"] }
 image = "0.25.9"
 git2 = "0.20.4"
 base64 = "0.22.1"
+
+[features]
+restrict_image_upload_dimensions = []

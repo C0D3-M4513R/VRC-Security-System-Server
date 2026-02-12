@@ -43,9 +43,14 @@ pub async fn put_image(auth: Result<JWT, AuthErr>, club: &str, name: &str, data:
         use image::GenericImageView;
 
         fn helper<T: ::std::io::BufRead + ::std::io::Seek>(mut image: image::ImageReader<T>) -> Result<Vec<u8>, (rocket::http::Status, AskamaWrapper<Err<'static>>)> {
-            let mut limits = ::image::Limits::default();
-            // limits.max_image_width = Some(2048);
-            // limits.max_image_height = Some(2048);
+            let limits = ::image::Limits::default();
+            #[cfg(feature = "restrict_image_upload_dimensions")]
+            let limits = {
+                let mut limits = limits;
+                limits.max_image_width = Some(2048);
+                limits.max_image_height = Some(2048);
+                limits
+            };
             image.limits(limits);
             let image = match image.with_guessed_format() {
                 Ok(v) => v,

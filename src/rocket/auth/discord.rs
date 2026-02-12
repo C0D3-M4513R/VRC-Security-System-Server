@@ -7,7 +7,6 @@ use std::fmt::{Display, Formatter};
 use std::num::NonZeroU16;
 use std::str::FromStr;
 use std::time::{UNIX_EPOCH};
-use reqwest::Url;
 use rocket::Request;
 use rocket::request::{FromRequest, Outcome};
 use rocket::serde::Deserialize;
@@ -27,7 +26,7 @@ pub async fn setup() -> ::anyhow::Result<(serenity::Client, Discord)> {
     let secret = std::env::var("DISCORD_SECRET").map_err(|err|::anyhow::format_err!("Could not find DISCORD_SECRET: {err}"))?;
     let token = std::env::var("DISCORD_TOKEN").map_err(|err|::anyhow::format_err!("Could not find DISCORD_TOKEN: {err}"))?;
     let return_url = std::env::var("DISCORD_OAUTH_RETURN_URL").map_err(|err|::anyhow::format_err!("Could not find DISCORD_OAUTH_RETURN_URL: {err}"))?;
-    let return_url = rocket::http::uri::Absolute::parse_owned(return_url).map_err(|err|::anyhow::format_err!("Failed to parse DISCORD_OAUTH_RETURN_URL as an Absolute url: {err}"))?;;
+    let return_url = rocket::http::uri::Absolute::parse_owned(return_url).map_err(|err|::anyhow::format_err!("Failed to parse DISCORD_OAUTH_RETURN_URL as an Absolute url: {err}"))?;
     let discord_app_id = match serenity::model::prelude::ApplicationId::from_str(discord_app_id.as_str()) {
         Ok(discord_app_id) => discord_app_id,
         Err(err) => anyhow::bail!("Failed to parse discord application ID: {err}")
@@ -60,7 +59,7 @@ impl JWT {
     }
 
     #[inline]
-    pub fn get_token(&self) -> &Token {
+    fn get_token(&self) -> &Token {
         match self {
             Self::V1(v) => v.get_token(),
         }
@@ -153,7 +152,7 @@ impl TokenMeta {
         Ok(time < self.expires_at)
     }
     #[inline]
-    pub fn get_token(&self) -> &Token {
+    fn get_token(&self) -> &Token {
         &self.token
     }
     pub async fn refresh(&mut self, discord: &Discord) -> ::anyhow::Result<()> {
@@ -368,22 +367,24 @@ impl<'r> FromRequest<'r> for JWT {
     type Error = AuthErr;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        return Outcome::Success(JWT::V1(TokenMeta{
-            token: Token {
-                access_token: "".to_string(),
-                token_type: "".to_string(),
-                expires_in: 7*24*60*60,
-                refresh_token: "".to_string(),
-                scope: "".to_string(),
-            },
-            created_at: 1770750494,
-            expires_at: 1770750494+(7*24*60*60),
-            user_id: 790211774900862997,
-            username: "c0d3_m4523r".to_string(),
-            discriminator: None,
-            display_name: Some("C0D3 M4513R".to_string()),
-            user_avatar_image_hash: Some(serenity::model::prelude::ImageHash::from_str("65c84bf39bfc0af7ae0b30f635a2247f").unwrap()),
-        }));
+        if false {
+            return Outcome::Success(JWT::V1(TokenMeta{
+                token: Token {
+                    access_token: "".to_string(),
+                    token_type: "".to_string(),
+                    expires_in: 7*24*60*60,
+                    refresh_token: "".to_string(),
+                    scope: "".to_string(),
+                },
+                created_at: 1770750494,
+                expires_at: 1770750494+(7*24*60*60),
+                user_id: 790211774900862997,
+                username: "c0d3_m4523r".to_string(),
+                discriminator: None,
+                display_name: Some("C0D3 M4513R".to_string()),
+                user_avatar_image_hash: Some(serenity::model::prelude::ImageHash::from_str("65c84bf39bfc0af7ae0b30f635a2247f").unwrap()),
+            }));
+        }
 
 
         let cookie = match request.cookies().get_private(DISCORD_TOKEN_COOKIE_NAME) {
