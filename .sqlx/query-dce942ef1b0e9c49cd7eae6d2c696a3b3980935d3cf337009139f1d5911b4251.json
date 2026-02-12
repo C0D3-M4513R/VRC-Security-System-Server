@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT change_logo($1, $2, $3)",
+  "query": "SELECT change_poster3($1, $2, $3) as \"digest!\"",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "change_logo",
-        "type_info": "Void"
+        "name": "digest!",
+        "type_info": "Bytea"
       }
     ],
     "parameters": {
@@ -20,5 +20,5 @@
       null
     ]
   },
-  "hash": "32a8e1169374d8895f4286d75337cc421cd9e52063b5e1276bb8d8a9ff8ca1a9"
+  "hash": "dce942ef1b0e9c49cd7eae6d2c696a3b3980935d3cf337009139f1d5911b4251"
 }
