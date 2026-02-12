@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT true as dummy FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club.\"path-name\" = $1 AND digest = $2 ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dummy",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1de4cc52a3379a6dc8904debdff3faf7122d40d599bf46866c582c7a34250ba0"
+}

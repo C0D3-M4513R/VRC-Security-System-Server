@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT image, digest FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club.\"path-name\" = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "image",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "digest",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c3a76908892fbaa94dbe77d8e76cb030cb825c8fbafa3cdad589552a4405ebae"
+}

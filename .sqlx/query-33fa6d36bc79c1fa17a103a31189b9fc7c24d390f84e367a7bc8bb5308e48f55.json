@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    public.club_vrc_permission.permission_level,\n    ARRAY_AGG(public.vrc_name.name) as permissions\nFROM public.club_vrc_permission\nINNER JOIN public.vrc_name on public.vrc_name.id = public.club_vrc_permission.vrc_name\nINNER JOIN public.club on public.club_vrc_permission.club_id = public.club.id\nWHERE public.club.\"path-name\" = $1\nGROUP BY public.club_vrc_permission.permission_level\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "permission_level",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "permissions",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "33fa6d36bc79c1fa17a103a31189b9fc7c24d390f84e367a7bc8bb5308e48f55"
+}

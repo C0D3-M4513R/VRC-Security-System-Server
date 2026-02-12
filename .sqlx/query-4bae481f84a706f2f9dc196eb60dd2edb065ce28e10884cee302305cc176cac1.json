@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            public.club.\"path-name\" as path_name,\n            public.club.name as name,\n            public.discord_permissions.*\n        FROM club\n            INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0\n            WHERE public.discord_permissions.discord_id = $1 AND public.club.\"path-name\" = $2\n            ORDER BY public.discord_permissions.club_id\n            LIMIT 1\n    ",
+  "query": "\n        SELECT\n            public.club.\"path-name\" as path_name,\n            public.club.name as name,\n            public.club.id as actual_club_id,\n            public.club.code as code,\n            public.discord_permissions.*\n        FROM club\n            INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0\n            WHERE public.discord_permissions.discord_id = $1 AND public.club.\"path-name\" = $2\n            ORDER BY public.discord_permissions.club_id\n            LIMIT 1\n    ",
   "describe": {
     "columns": [
       {
@@ -15,76 +15,86 @@
       },
       {
         "ordinal": 2,
-        "name": "club_id",
+        "name": "actual_club_id",
         "type_info": "Int8"
       },
       {
         "ordinal": 3,
-        "name": "discord_id",
+        "name": "code",
         "type_info": "Int8"
       },
       {
         "ordinal": 4,
+        "name": "club_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "discord_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
         "name": "add_discord_user",
         "type_info": "Bool"
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "remove_discord_user",
         "type_info": "Bool"
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "update_club_name",
         "type_info": "Bool"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "add_allowed_code_replacements",
         "type_info": "Bool"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "add_level",
         "type_info": "Int2"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "update_logo",
         "type_info": "Bool"
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "update_poster1",
         "type_info": "Bool"
       },
       {
-        "ordinal": 11,
+        "ordinal": 13,
         "name": "update_poster2",
         "type_info": "Bool"
       },
       {
-        "ordinal": 12,
+        "ordinal": 14,
         "name": "update_poster3",
         "type_info": "Bool"
       },
       {
-        "ordinal": 13,
+        "ordinal": 15,
         "name": "remove_allowed_code_replacements",
         "type_info": "Bool"
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "remove_level",
         "type_info": "Int2"
       },
       {
-        "ordinal": 15,
+        "ordinal": 17,
         "name": "manage_permissions",
         "type_info": "Int4"
       },
       {
-        "ordinal": 16,
+        "ordinal": 18,
         "name": "submit",
         "type_info": "Bool"
       }
@@ -104,6 +114,8 @@
       false,
       false,
       false,
+      false,
+      false,
       true,
       false,
       false,
@@ -115,5 +127,5 @@
       false
     ]
   },
-  "hash": "5945e099e67cff2b9c88a8e74e45cb509c7a7352d6cd231d0e74342fe60aa059"
+  "hash": "4bae481f84a706f2f9dc196eb60dd2edb065ce28e10884cee302305cc176cac1"
 }

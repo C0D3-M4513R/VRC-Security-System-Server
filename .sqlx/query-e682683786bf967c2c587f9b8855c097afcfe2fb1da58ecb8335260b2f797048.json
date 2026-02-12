@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT discord_create($1, $2, $3, $4, null)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "discord_create",
+        "type_info": "Void"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e682683786bf967c2c587f9b8855c097afcfe2fb1da58ecb8335260b2f797048"
+}
