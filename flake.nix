@@ -25,29 +25,27 @@
        ];
         runtimeDependencies = with pkgs; [
         ];
-      in
-      {
-        defaultPackage = pkgs.rustPlatform.buildRustPackage {
-          name = manifest.name;
-          pversion = manifest.version;
+        package = pkgs.rustPlatform.buildRustPackage {
+					name = manifest.name;
+					pversion = manifest.version;
 
-          src = pkgs.lib.cleanSource ./.;
+					src = pkgs.lib.cleanSource ./.;
 					cargoLock = {
 						lockFile = ./Cargo.lock;
 					};
-          doCheck = true;
+					doCheck = true;
 
-          nativeBuildInputs = [
-            pkgs.autoPatchelfHook
-            pkgs.pkg-config
-          ];
+					nativeBuildInputs = [
+						pkgs.autoPatchelfHook
+						pkgs.pkg-config
+					];
 
-          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+					LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
 
-          runtimeDependencies = runtimeDependencies;
+					runtimeDependencies = runtimeDependencies;
 
-          buildInputs = with pkgs; [
-          ] ++ commonBuildInputs;
+					buildInputs = with pkgs; [
+					] ++ commonBuildInputs;
 
 					meta = {
 #						description = "";
@@ -55,6 +53,13 @@
 						platforms = pkgs.lib.platforms.linux ++ pkgs.lib.platforms.windows ++ pkgs.lib.platforms.darwin;
 						mainProgram = "NeoLuma-Site";
 					};
+				};
+      in
+      {
+        defaultPackage = package;
+        packages = {
+        	"default" = package;
+        	"server" = package;
         };
 
         defaultApp = utils.lib.mkApp {
