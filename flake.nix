@@ -49,7 +49,7 @@
 
 					meta = {
 #						description = "";
-						license = pkgs.lib.licenses.unfree;
+#						license = pkgs.lib.licenses.unfree; #TODO: Re-Mark this as unfree, once you can actually use flakes with unfree packages
 						platforms = pkgs.lib.platforms.linux ++ pkgs.lib.platforms.windows ++ pkgs.lib.platforms.darwin;
 						mainProgram = "NeoLuma-Site";
 					};
