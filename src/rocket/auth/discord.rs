@@ -22,28 +22,22 @@ pub struct Discord {
     oauth_redirect_url: rocket::http::uri::Absolute<'static>,
 }
 
-pub async fn setup() -> ::anyhow::Result<(serenity::Client, Discord)> {
+pub async fn setup() -> ::anyhow::Result<Discord> {
     let discord_app_id = std::env::var("DISCORD_ID").map_err(|err|::anyhow::format_err!("Could not find DISCORD_ID: {err}"))?;
     let secret = std::env::var("DISCORD_SECRET").map_err(|err|::anyhow::format_err!("Could not find DISCORD_SECRET: {err}"))?;
-    let token = std::env::var("DISCORD_TOKEN").map_err(|err|::anyhow::format_err!("Could not find DISCORD_TOKEN: {err}"))?;
     let return_url = std::env::var("DISCORD_OAUTH_RETURN_URL").map_err(|err|::anyhow::format_err!("Could not find DISCORD_OAUTH_RETURN_URL: {err}"))?;
     let return_url = rocket::http::uri::Absolute::parse_owned(return_url).map_err(|err|::anyhow::format_err!("Failed to parse DISCORD_OAUTH_RETURN_URL as an Absolute url: {err}"))?;
     let discord_app_id = match serenity::model::prelude::ApplicationId::from_str(discord_app_id.as_str()) {
         Ok(discord_app_id) => discord_app_id,
         Err(err) => anyhow::bail!("Failed to parse discord application ID: {err}")
     };
-    let client = serenity::Client::builder("", serenity::all::GatewayIntents::empty())
-        .token(token)
-        .application_id(discord_app_id)
-        .await?;
-    tracing::info!("Connected to Discord");
 
-    Ok((client, Discord{
+    Ok(Discord{
         id: discord_app_id,
         secret,
         client: reqwest::Client::new(),
         oauth_redirect_url: return_url,
-    }))
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize)]

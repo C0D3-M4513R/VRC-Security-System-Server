@@ -117,13 +117,7 @@ fn main() -> ::anyhow::Result<()> {
 
 async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()> {
     let _ = get_db().await;
-    let (client, discord) = rocket::auth::discord::setup().await?;
-    let client_shard_manager = client.shard_manager.clone();
-    let client_jh = ::tokio::spawn(async{
-        let mut client = client;
-        tracing::info!("Starting Discord Shards");
-        client.start_autosharded().await
-    });
+    let discord = rocket::auth::discord::setup().await?;
 
     let limits = Limits {
         max_permission_level:
@@ -178,12 +172,7 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
     let rocket = rocket.ignite().await?;
     tracing::info!("Ignited Rocket. About to Launch!");
     rocket.launch().await?;
-    tracing::info!("Launched Rocket, Shutdown Now in progress");
-
-    client_shard_manager.shutdown_all().await;
-    tracing::info!("Requested shutdown of all Discord Shards");
-    client_jh.await??;
-    tracing::info!("Shutdown Discord Client");
+    tracing::info!("Rocket Shutdown Now in progress");
 
     Ok(())
 }
