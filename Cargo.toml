@@ -28,3 +28,7 @@ base64 = "0.22.1"
 
 [features]
 restrict_image_upload_dimensions = []
+
+[profile.release]
+lto = true
+strip = true

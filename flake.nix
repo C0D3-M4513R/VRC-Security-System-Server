@@ -21,7 +21,7 @@
         commonBuildInputs = with pkgs; [
           pkg-config
           openssl.dev
-          libclang
+          libclang.lib
        ];
         runtimeDependencies = with pkgs; [
         ];
@@ -39,7 +39,10 @@
 
           nativeBuildInputs = [
             pkgs.autoPatchelfHook
+            pkgs.pkg-config
           ];
+
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
 
           runtimeDependencies = runtimeDependencies;
 
