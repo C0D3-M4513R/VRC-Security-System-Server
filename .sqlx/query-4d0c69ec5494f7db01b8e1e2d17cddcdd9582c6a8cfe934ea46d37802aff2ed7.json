@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            public.club_vrc_permission.permission_level,\n            public.vrc_name.name as vrc_name\n        FROM club\n            INNER JOIN public.club_vrc_permission ON public.club.id = public.club_vrc_permission.club_id\n            INNER JOIN public.vrc_name ON public.club_vrc_permission.vrc_name = public.vrc_name.id\n            WHERE public.club.id = $1\n            ORDER BY public.club_vrc_permission.permission_level ASC\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "permission_level",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 1,
+        "name": "vrc_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4d0c69ec5494f7db01b8e1e2d17cddcdd9582c6a8cfe934ea46d37802aff2ed7"
+}

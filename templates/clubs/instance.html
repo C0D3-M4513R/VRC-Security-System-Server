@@ -1,0 +1,85 @@
+{% import "parts/club-navbar.html" as navbar %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
+    <title>Club Dashboard - {{name}}</title>
+  <style>
+    .image-display {
+      min-width: 150px;
+      max-width: 24vw;
+    }
+    .image-display>img{
+      max-width: 100%;
+    }
+    .image-display-list > tbody > tr {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Club {{name}}</h1>
+  {% call navbar::header(self) %}{% endcall %}
+  <br>
+
+  {% if permissions.submit %}
+  <form method="post" action="/api/club/{{path_name}}/publish">
+    <input type="submit" value="Request a Club-Update with the saved information">
+  </form><br>
+  {% endif %}
+
+  <form method="post" action="/api/club/{{path_name}}/club_name">
+    <input name="_method" type="hidden" value="put"/>
+    <label>Club-Name: <input name="name" type="text" value="{{name}}" pattern='[ "-~][ -~]*' {% if !permissions.update_club_name %} disabled {% endif %}></label>
+    <input name="submit" type="submit" value="Change Club Name">
+  </form>
+  <table class="image-display-list">
+    <tr>
+      <td class="image-display">
+        <p>Logo:</p>
+        <img src="/api/club/{{path_name}}/image/Logo.png" alt="Logo of Club {{name}}"/>
+        {% if permissions.update_logo %}
+        <form method="post" action="/api/club/{{path_name}}/image/Logo.png" enctype="multipart/form-data">
+          <input type="file" name="file" accept="image/*" required/><br>
+          <input type="submit" value="Upload new Image"/>
+        </form>
+        {% endif %}
+      </td>
+      <td class="image-display">
+        <p>Poster1:</p>
+        <img src="/api/club/{{path_name}}/image/Poster1.png" alt="Poster1 of Club {{name}}"/>
+        {% if permissions.update_poster1 %}
+        <form method="post" action="/api/club/{{path_name}}/image/Poster1.png" enctype="multipart/form-data">
+          <input type="file" name="file" accept="image/*" required/><br>
+          <input type="submit" value="Upload new Image"/>
+        </form>
+        {% endif %}
+      </td>
+      <td class="image-display">
+        <p>Poster2:</p>
+        <img src="/api/club/{{path_name}}/image/Poster2.png" alt="Poster2 of Club {{name}}"/>
+        {% if permissions.update_poster2 %}
+        <form method="post" action="/api/club/{{path_name}}/image/Poster2.png" enctype="multipart/form-data">
+          <input type="file" name="file" accept="image/*" required/><br>
+          <input type="submit" value="Upload new Image"/>
+        </form>
+        {% endif %}
+      </td>
+      <td class="image-display">
+        <p>Poster3:</p>
+        <img src="/api/club/{{path_name}}/image/Poster3.png" alt="Poster3 of Club {{name}}"/>
+        {% if permissions.update_poster3 %}
+        <form method="post" action="/api/club/{{path_name}}/image/Poster3.png" enctype="multipart/form-data">
+          <input type="file" name="file" accept="image/*" required/><br>
+          <input type="submit" value="Upload new Image"/>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

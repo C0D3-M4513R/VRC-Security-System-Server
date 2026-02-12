@@ -1,0 +1,54 @@
+{% import "parts/club-navbar.html" as navbar %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
+    <title>Club Dashboard - {{information.name}}</title>
+    <style>
+    </style>
+</head>
+<body>
+<h1>Club {{information.name}}</h1>
+{% call navbar::header(information) %}{% endcall %}
+<br>
+
+<p><b>Please keep in mind, that a lower Permission Level is more powerful!</b></p>
+<p>To change a permission-level of a person, just add them in the new permission-level and remove them from the old one.</p>
+
+{% if let Some(add_level) = information.permissions.add_level %}
+<form method="post" action="/api/club/{{information.path_name}}/vrcuser_level">
+    <input type="hidden" name="_method" value="PUT">
+    <label>VRC Name:<input type="text" name="vrc_name" required></label>
+    <label>Permission Level:<input type="number" name="permission_level" min="{{add_level}}" max="{{limits.max_permission_level}}" value="{{add_level}}" required></label>
+    <input type="submit" value="Add Permission">
+</form>
+<br>
+{% endif %}
+<table>
+    <thead>
+        <tr>
+            <th>VRChat Account Display Name:</th>
+            <th>Permission Level</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for permission in permissions %}
+        <tr>
+            <td class="action-vrchat_name"><p>{{permission.vrc_name}}</p></td>
+            <td class="action-vrchat-permission_level"><p>{{permission.permission_level}}</p></td>
+            <td class="action-permission-delete">
+                {% if let Some(remove_level) = information.permissions.remove_level && *remove_level <= permission.permission_level %}
+                <form method="post" action="/api/club/{{information.path_name}}/vrcuser_level/{{permission.vrc_name}}/{{remove_level}}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <input type="submit" value="Delete Permission">
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

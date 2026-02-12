@@ -1,0 +1,27 @@
+[package]
+name = "NeoLuma-Site"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+dotenvy = "0.15.7"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+anyhow = "1.0.100"
+
+tokio = { version = "1.49.0", features = ["process", "io-util"] }
+rocket = { version = "0.5.1", features = ["json", "secrets"] }
+askama = "0.15.4"
+
+serenity = { version = "0.12.5", features = ["full"] }
+reqwest = { version = "0.13.1", features = ["form"] }
+
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio"] }
+serde = "1.0.228"
+serde_derive = "1.0.228"
+
+sphincsplus = { version = "0.1.0", features = ["simple", "shake", "256f"] }
+image = "0.25.9"
+git2 = "0.20.4"
+base64 = "0.22.1"

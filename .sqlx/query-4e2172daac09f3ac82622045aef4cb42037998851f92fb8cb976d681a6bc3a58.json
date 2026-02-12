@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT image FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club.\"path-name\" = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "image",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4e2172daac09f3ac82622045aef4cb42037998851f92fb8cb976d681a6bc3a58"
+}

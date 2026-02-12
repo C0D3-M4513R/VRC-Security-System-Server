@@ -1,0 +1,119 @@
+{% import "parts/club-navbar.html" as navbar %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="color-scheme" content="light dark">
+    <title>Club Dashboard - {{information.name}}</title>
+    <style>
+    </style>
+</head>
+<body>
+<h1>Club {{information.name}}</h1>
+{% call navbar::header(information) %}{% endcall %}
+<br>
+
+<p><b>Please keep in mind, that a lower Permission Level is more powerful!</b></p>
+<p>Also adding a person to the permission-list will only succeed, if they have logged in to the website successfully before.</p>
+
+{% if information.permissions.add_discord_user %}
+<form method="post" action="/api/club/{{information.path_name}}/manage_permissions">
+    <input type="hidden" name="_method" value="PUT">
+    <label>Discord Id:<input type="text" name="target_id" pattern="[0-9]+" required></label>
+    <input type="submit" value="Add Permission">
+</form>
+<br>
+{% endif %}
+<table>
+    <thead>
+    <tr>
+        <th>Discord Id:</th>
+        <th>Discord Name:</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for permission in permissions %}
+    <tr>
+        <td><p>{{permission.discord_id}}</p></td>
+        <td><p>{{permission.discord_name}}{% if let Some(discriminator) = permission.discord_discriminator %}#{{discriminator}}{% endif %}</p></td>
+        <td>
+            <form method="post" action="/api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}">
+                <input type="hidden" name="_method" value="PUT">
+                <label>Allowed to Add Discord Users (of higher Manage Permission Level):<input type="checkbox" name="add_discord_user" {% if permission.permission.add_discord_user %}checked{% endif %} {% if !information.permissions.add_discord_user %}disabled{% endif %}></label><br>
+                <label>Allowed to Remove Discord Users (of higher Manage Permission Level):<input type="checkbox" name="remove_discord_user" {% if permission.permission.remove_discord_user %}checked{% endif %} {% if !information.permissions.remove_discord_user %}disabled{% endif %}></label><br><br>
+                <label>Allowed to Update Club Name:<input type="checkbox" name="update_club_name" {% if permission.permission.update_club_name %}checked{% endif %} {% if !information.permissions.update_club_name %}disabled{% endif %}></label><br><br>
+                <label>Disable Adding VRC Names to the Permission List:<input type="checkbox" name="add_level" value="null"
+                    {% match (permission.permission.add_level,information.permissions.add_level)  %}
+                      {% when (None, None) %} checked disabled
+                      {% when (Some(_), None) %} disabled
+                      {% when (None, Some(_)) %} checked
+                      {% when (Some(target), Some(slf)) %} {% if target < slf %} disabled {% endif %}
+                    {% endmatch %}
+                ></label><br>
+                <label>Level allowed to add VRC Names on:<input type="number" name="add_level"
+                    {% if let Some(add_level) = information.permissions.add_level %}
+                        min="{{add_level}}" max="{{limits.max_permission_level}}"
+                        {% if let Some(cur_add_level) = permission.permission.add_level %}
+                             value="{{cur_add_level}}"
+                        {% else %}
+                            value="{{limits.max_permission_level}}"
+                        {% endif %}
+                    {% else %}
+                        disabled
+                    {% endif %}
+                ></label><br><br>
+                <label>Disable Removing VRC Names to the Permission List:<input type="checkbox" name="remove_level" value="null"
+                    {% match (permission.permission.remove_level,information.permissions.remove_level)  %}
+                        {% when (None, None) %} checked disabled
+                        {% when (Some(_), None) %} disabled
+                        {% when (None, Some(_)) %} checked
+                        {% when (Some(target), Some(slf)) %} {% if target < slf %} disabled {% endif %}
+                    {% endmatch %}
+                    ></label><br>
+                <label>Level allowed to remove VRC Names on:<input type="number" name="remove_level"
+                    {% if let Some(remove_level) = information.permissions.remove_level %}
+                        min="{{remove_level}}" max="{{limits.max_permission_level}}"
+                        {% if let Some(cur_remove_level) = permission.permission.remove_level %}
+                            value="{{cur_remove_level}}"
+                        {% else %}
+                            value="{{limits.max_permission_level}}"
+                        {% endif %}
+                    {% else %}
+                        disabled
+                    {% endif %}
+                ></label><br><br>
+                <label>Allowed to Update Club Logo:<input type="checkbox" name="update_logo" {% if permission.permission.update_logo %}checked{% endif %} {% if !information.permissions.update_logo %}disabled{% endif %}></label><br>
+                <label>Allowed to Update Club Poster1:<input type="checkbox" name="update_poster1" {% if permission.permission.update_poster1 %}checked{% endif %} {% if !information.permissions.update_poster1 %}disabled{% endif %}></label><br>
+                <label>Allowed to Update Club Poster2:<input type="checkbox" name="update_poster2" {% if permission.permission.update_poster2 %}checked{% endif %} {% if !information.permissions.update_poster2 %}disabled{% endif %}></label><br>
+                <label>Allowed to Update Club Poster3:<input type="checkbox" name="update_poster3" {% if permission.permission.update_poster3 %}checked{% endif %} {% if !information.permissions.update_poster3 %}disabled{% endif %}></label><br><br>
+                <label>Disable Manage Level:<input type="checkbox" name="manage_permissions" value="null"
+                    {% match (permission.permission.manage_permissions,information.permissions.manage_permissions)  %}
+                        {% when (None, None) %} checked disabled
+                        {% when (Some(_), None) %} disabled
+                        {% when (None, Some(_)) %} checked
+                        {% when (Some(target), Some(slf)) %} {% if target < slf %} disabled {% endif %}
+                    {% endmatch %}
+                ></label><br>
+                <label>Manage Level:<input type="number" name="manage_permissions"
+                    {% match (permission.permission.manage_permissions,information.permissions.manage_permissions)  %}
+                        {% when (_, None) %} disabled
+                        {% when (None, Some(perm)) %} min="{{perm + 1}}" max="{{limits.max_manage_permission_level}}" value="{{perm + 1}}"
+                        {% when (Some(target), Some(perm)) %}
+                            {% if target <= perm %}
+                                disabled
+                            {% else %}
+                                min="{{perm + 1}}" max="{{limits.max_manage_permission_level}}" value="{{target}}"
+                            {% endif %}
+                    {% endmatch %}
+                ></label><br><br>
+                <label>Allowed to Request Update:<input type="checkbox" name="submit" {% if permission.permission.submit %}checked{% endif %} {% if !information.permissions.submit %}disabled{% endif %}></label><br><br>
+                <input type="submit" value="Update Permissions">
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

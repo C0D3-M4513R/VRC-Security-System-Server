@@ -1,0 +1,107 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    SELECT public.discord_permissions.* FROM public.club\n        INNER JOIN public.discord_permissions ON public.discord_permissions.club_id = public.club.id OR public.discord_permissions.club_id = 0\n        WHERE public.discord_permissions.discord_id = $1 AND public.club.\"path-name\" = $2\n        ORDER BY public.discord_permissions.club_id ASC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "club_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "discord_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "add_discord_user",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "remove_discord_user",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "update_club_name",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "add_allowed_code_replacements",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "add_level",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 7,
+        "name": "update_logo",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "update_poster1",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "update_poster2",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "update_poster3",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "remove_allowed_code_replacements",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "remove_level",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 13,
+        "name": "manage_permissions",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "submit",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "7cc4666df0ce242730e11b53c57136bb34493514416b8e3545cae28b308bd1e6"
+}

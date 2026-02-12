@@ -1,0 +1,8 @@
+{% macro header(instance) %}
+<nav>
+    <a href="/clubs">Back to Club-Selection</a>
+    <a href="/clubs/{{instance.path_name}}">Club Image Management</a>
+    <a href="/clubs/{{instance.path_name}}/vrchat_permissions">Change VRChat Permissions</a>
+    <a href="/clubs/{{instance.path_name}}/discord_permissions">Change Discord Permissions</a>
+</nav>
+{% endmacro %}

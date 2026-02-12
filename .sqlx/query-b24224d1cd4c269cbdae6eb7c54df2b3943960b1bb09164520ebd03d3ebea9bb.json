@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT add_vrcuser_level($1, $2, $3, $4)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "add_vrcuser_level",
+        "type_info": "Void"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b24224d1cd4c269cbdae6eb7c54df2b3943960b1bb09164520ebd03d3ebea9bb"
+}
