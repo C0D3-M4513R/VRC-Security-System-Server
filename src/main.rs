@@ -140,6 +140,7 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
             rocket::auth::discord::new::new_oauth,
             rocket::auth::discord::oauth::oauth_ok,
             rocket::auth::discord::err::oauth_err,
+            rocket::auth::discord::logout::logout,
 
             rocket::api::club::code_replacements::put_club_replacement,
             rocket::api::club::code_replacements::delete_club_replacement,

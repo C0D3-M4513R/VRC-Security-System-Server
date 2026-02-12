@@ -1,6 +1,7 @@
 pub mod new;
 pub mod oauth;
 pub mod err;
+pub mod logout;
 
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
