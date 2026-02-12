@@ -250,9 +250,6 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
                 })));
             }
         }
-        if i == PLACEHOLDER_PNG_SHA3_512 {
-            return resp(i);
-        }
     }
     let mut etag:ETag = match match name {
         "Logo.png" => sqlx::query!(r#"SELECT image, digest FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
