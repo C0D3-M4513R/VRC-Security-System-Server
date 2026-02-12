@@ -230,9 +230,6 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
                 header,
             }))
         };
-        if i == PLACEHOLDER_PNG_SHA3_512 {
-            return resp(i);
-        }
         match match name {
             "Logo.png" => sqlx::query!(r#"SELECT true as dummy FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
             "Poster1.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
@@ -252,6 +249,9 @@ pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str
                     error_description: Some(err.to_string().into()),
                 })));
             }
+        }
+        if i == PLACEHOLDER_PNG_SHA3_512 {
+            return resp(i);
         }
     }
     let mut etag:ETag = match match name {
