@@ -8,7 +8,7 @@ pub enum Responder {
     AskamaErr(AskamaWrapper<Err<'static>>),
 }
 
-#[rocket::get("/api/discord/oauth?<code>&<state>", rank=0)]
+#[rocket::get("/api/auth/discord/oauth?<code>&<state>", rank=0)]
 pub async fn oauth_ok(discord: &rocket::State<super::Discord>, cookie_jar: &rocket::http::CookieJar<'_>, code: &str, state: &str) -> Responder {
     let _ = state; //Yes rust, I don't use this field. I know. Now stop complaining.
     let jwt = match super::JWT::new(discord, code).await {
