@@ -18,6 +18,7 @@ pub async fn get_club_instance<'r>(auth: Result<JWT, AuthErr>, limits: &'r rocke
         SELECT
             public.club."path-name" as path_name,
             public.club.name as name,
+            public.club.code as code,
             public.discord_permissions.*
         FROM club
             INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0
@@ -44,6 +45,7 @@ pub async fn get_club_instance<'r>(auth: Result<JWT, AuthErr>, limits: &'r rocke
 
     Response::Ok(AskamaWrapper(ClubInstance{
         name: res.name,
+        code: res.code,
         path_name: res.path_name,
         permissions: perms,
         limits: &**limits,

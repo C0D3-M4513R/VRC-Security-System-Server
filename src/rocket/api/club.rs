@@ -9,6 +9,9 @@ pub mod code_replacements;
 pub mod vrcuser_level;
 pub mod club_name;
 pub mod manage_permissions;
+pub mod new;
+
+pub(crate) const CLUB_OWNERS:&str = "!CLUB-OWNERS";
 
 #[derive(Debug, serde_derive::Deserialize, serde_derive::Serialize, rocket::form::FromForm)]
 pub struct Permissions{

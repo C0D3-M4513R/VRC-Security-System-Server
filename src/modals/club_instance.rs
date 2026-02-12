@@ -6,6 +6,7 @@ use crate::rocket::api::club::Permissions;
 #[template(path = "clubs/instance.html")]
 pub struct ClubInstance<'a> {
     pub name: String,
+    pub code: i64,
     pub path_name: String,
     pub permissions: Permissions,
     pub limits: &'a Limits,

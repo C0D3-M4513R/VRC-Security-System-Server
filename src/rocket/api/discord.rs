@@ -1,0 +1,52 @@
+use std::borrow::Cow;
+use crate::rocket::api::club::Permissions;
+use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::{AskamaWrapper, Response};
+
+#[derive(rocket::FromForm)]
+pub struct DiscordInfo<'r> {
+    discord_id: u64,
+    username: &'r str,
+    discriminator: Option<i16>,
+}
+#[rocket::put("/api/discord/info", data = "<data>")]
+pub async fn put_discord_info<'r>(auth: Result<JWT, AuthErr>, data: rocket::form::Form<DiscordInfo<'r>>) -> Response<rocket::response::Redirect> {
+    let auth = match auth {
+        Ok(jwt) => jwt,
+        Err(err) => return Response::AuthErr(err),
+    };
+
+    match Permissions::require_permission(&auth, crate::rocket::api::club::CLUB_OWNERS, |v|v.manage_permissions == Some(0)).await {
+        Ok(()) => {}
+        Err(err) => return Response::Error(err),
+    }
+
+    let db = crate::get_db().await;
+    let table = match sqlx::query!(
+        "SELECT discord_create($1, $2, $3, $4, null)",
+        auth.get_user_id().cast_signed(), data.discord_id.cast_signed(), data.username, data.discriminator
+    )
+        .execute(&db)
+        .await
+    {
+        Ok(v) => v,
+        Err(err) => {
+            tracing::error!("Failed to discord_create: {err}");
+            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(crate::modals::err::Err {
+                error: Cow::Borrowed("Failed to discord_create in DB"),
+                error_description: Some(err.to_string().into()),
+            })))
+        }
+    };
+    let redir = Response::Ok(rocket::response::Redirect::to(rocket::uri!("/clubs/")));
+    match table.rows_affected() {
+        0 => {},
+        1 => return redir,
+        affected => {
+            tracing::error!("discord_create add query affected more than 1 row? {affected}");
+            return redir
+        }
+    }
+
+    redir
+}

@@ -20,6 +20,7 @@ pub async fn get_club_vrc_names<'r>(auth: Result<JWT, AuthErr>, limits: &'r rock
             public.club."path-name" as path_name,
             public.club.name as name,
             public.club.id as actual_club_id,
+            public.club.code as code,
             public.discord_permissions.*
         FROM club
             INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0
@@ -68,6 +69,7 @@ pub async fn get_club_vrc_names<'r>(auth: Result<JWT, AuthErr>, limits: &'r rock
     Response::Ok(AskamaWrapper(ClubVRCPermissions{
         information: ClubInstance {
             name: res.name,
+            code: res.code,
             path_name: res.path_name,
             permissions: perms,
             limits: &**limits,

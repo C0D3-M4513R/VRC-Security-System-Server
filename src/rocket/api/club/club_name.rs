@@ -42,7 +42,7 @@ pub async fn put_club_name<'r>(auth: Result<JWT, AuthErr>, club: &'r str, data: 
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to change_club_name: {err}");
-            return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(crate::modals::err::Err {
+            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(crate::modals::err::Err {
                 error: Cow::Borrowed("Failed to change_club_name in DB"),
                 error_description: Some(err.to_string().into()),
             })))

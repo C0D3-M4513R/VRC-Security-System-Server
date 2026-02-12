@@ -34,6 +34,7 @@
     <input type="submit" value="Request a Club-Update with the saved information" {% if !permissions.submit %} disabled {% endif %}>
   </form><br><br>
 
+  <p>Club Code: {{code}}</p>
   <form method="post" action="/api/club/{{path_name}}/club_name">
     <input name="_method" type="hidden" value="put"/>
     <label>Club-Name: <input name="name" type="text" value="{{name}}" pattern='[ "-~][ -~]*' {% if !permissions.update_club_name %} disabled {% endif %}></label>

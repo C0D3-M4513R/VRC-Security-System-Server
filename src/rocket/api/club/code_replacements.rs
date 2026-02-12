@@ -35,7 +35,7 @@ pub async fn put_club_replacement<'r>(auth: Result<JWT, AuthErr>, club: &'r str,
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to add_allowed_code_replacements: {err}");
-            return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
+            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed to add_allowed_code_replacements in DB"),
                 error_description: Some(err.to_string().into()),
             })))

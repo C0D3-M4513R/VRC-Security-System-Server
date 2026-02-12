@@ -3,21 +3,14 @@ pub mod vrchat_permissions;
 pub mod manage_permissions;
 
 use std::borrow::Cow;
-use rocket::Responder;
-use crate::rocket::AskamaWrapper;
+use crate::rocket::{AskamaWrapper, Response};
 use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::api::club::build_permission_from_res;
 use crate::modals::err::Err;
 use crate::modals::clubs::{Club, Clubs};
 
-#[derive(Responder)]
-pub enum Response {
-    Ok(AskamaWrapper<Clubs>),
-    AuthErr(AuthErr),
-    Error((rocket::http::Status, AskamaWrapper<Err<'static>>)),
-}
-
 #[rocket::get("/clubs")]
-pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response {
+pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response<AskamaWrapper<Clubs>> {
     let auth = match auth {
         Ok(a) => a,
         Err(e) => return Response::AuthErr(e),
@@ -40,8 +33,23 @@ pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response {
             error_description: None
         }))),
     };
+    let permission = match sqlx::query!(r#"
+        SELECT
+            public.discord_permissions.*
+        FROM public.discord_permissions
+        WHERE public.discord_permissions.discord_id = $1 AND public.discord_permissions.club_id = 0
+    "#, auth.get_user_id().cast_signed()).fetch_optional(&db)
+        .await {
+        Ok(Some(v)) => Some(build_permission_from_res!(v)),
+        Ok(None) => None,
+        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+            error: Cow::Borrowed("Failed to fetch your permissions across from the Database"),
+            error_description: None
+        }))),
+    };
 
     Response::Ok(AskamaWrapper(Clubs{
         clubs: res.into_iter().map(|c| Club{path_name: c.path_name, name: c.name}).collect(),
+        permission
     }))
 }

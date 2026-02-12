@@ -10,6 +10,34 @@
         <a href="/api/auth/discord/logout">Logout</a>
     </nav>
 
+    {% if let Some(permission) = permission && permission.manage_permissions == Some(0) %}
+    <table>
+        <tbody>
+        <tr>
+            <td>
+                <h1>Add Club</h1>
+                <form method="post" action="/api/club">
+                    <input type="hidden" name="_method" value="PUT">
+                    <label>Path-Name: <input type="text" name="path_name" pattern='[ "-~][ -~]*' required></label><br>
+                    <input type="submit" value="Create Club">
+                </form>
+            </td>
+            <td></td>
+            <td>
+                <h1>Add Discord User</h1>
+                <form method="post" action="/api/discord/info">
+                    <input type="hidden" name="_method" value="PUT">
+                    <label>ID: <input type="number" name="discord_id" required></label><br>
+                    <label>Username: <input type="text" name="username" required></label><br>
+                    <label>Discriminator: <input type="checkbox" name="discriminator" value="null" checked><input type="number" min="0" max="9999" name="discriminator" value="null"></label><br>
+                    <input type="submit" value="Create Discord Information">
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
     <h1>Clubs</h1>
     <ul>
         {% for club in clubs %}

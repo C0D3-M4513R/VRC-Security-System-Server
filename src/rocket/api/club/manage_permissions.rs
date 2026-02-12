@@ -59,7 +59,7 @@ async fn process_club_permission(auth: Result<JWT, AuthErr>, club: &str, target_
         Err(err) => {
             tracing::error!("Failed to manage_permissions: {err}");
             return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(crate::modals::err::Err {
-                error: Cow::Borrowed("Failed to manage_permissions in DB"),
+                error: Cow::Borrowed("Failed to manage_permissions in DB. Has that user logged in before?"),
                 error_description: Some(err.to_string().into()),
             })))
         }

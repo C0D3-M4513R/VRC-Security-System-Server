@@ -1,6 +1,37 @@
 use std::borrow::Cow;
 use crate::git::{auth, pull, search_branch};
+pub fn add_files_top(
+    files: Vec<(&[u8], &str)>,
+    repo: &git2::Repository,
+    builder: &mut git2::TreeBuilder<'_>
+) -> Result<git2::Oid, Cow<'static, str>> {
+    for (bytes, name) in files {
+        let oid = match repo.blob(bytes) {
+            Ok(oid) => oid,
+            Err(err) => {
+                tracing::warn!("Could not convert file content to oid for file {name}: {err}");
+                return Err(Cow::Owned(format!("Could not convert file content to oid for file {name}: {err}")));
+            }
+        };
+        let _ = match builder.insert(name, oid, 0o100644) {
+            Ok(v) => v,
+            Err(err) => {
+                tracing::warn!("Could not insert blob-oid to club tree-builder for file {name}: {err}");
+                return Err(Cow::Owned(format!("Could not insert blob-oid to club tree-builder for file {name}: {err}")));
+            }
+        };
+    }
 
+    let oid = match builder.write() {
+        Ok(v) => v,
+        Err(err) => {
+            tracing::warn!("Could not write Club-Tree to repo: {err}");
+            return Err(Cow::Owned(format!("Could not write Club-Tree to repo: {err}")));
+        }
+    };
+
+    Ok(oid)
+}
 pub fn add_files(
     files: Vec<(&[u8], &str)>,
     club_name: &str,
@@ -73,29 +104,7 @@ pub fn add_files(
                         return Err(Cow::Owned(format!("Could not get Club TreeBuilder: {err}")));
                     },
                 };
-                for (bytes, name) in files {
-                    let oid = match repo.blob(bytes) {
-                        Ok(oid) => oid,
-                        Err(err) => {
-                            tracing::warn!("Could not convert file content to oid for file {name}: {err}");
-                            return Err(Cow::Owned(format!("Could not convert file content to oid for file {name}: {err}")));
-                        }
-                    };
-                    let _ = match club.insert(name, oid, 0o100644) {
-                        Ok(v) => v,
-                        Err(err) => {
-                            tracing::warn!("Could not insert blob-oid to club tree-builder for file {name}: {err}");
-                            return Err(Cow::Owned(format!("Could not insert blob-oid to club tree-builder for file {name}: {err}")));
-                        }
-                    };
-                }
-                match club.write() {
-                    Ok(v) => v,
-                    Err(err) => {
-                        tracing::warn!("Could not write Club-Tree to repo: {err}");
-                        return Err(Cow::Owned(format!("Could not write Club-Tree to repo: {err}")));
-                    }
-                }
+                add_files_top(files, repo, &mut club)?
             };
             let _ = match codes.insert(club_name, club_oid, 0o040000) {
                 Ok(v) => v,
