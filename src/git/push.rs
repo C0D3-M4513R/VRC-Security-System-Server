@@ -1,11 +1,42 @@
 use std::borrow::Cow;
 use crate::git::{auth, pull, search_branch};
+pub fn has_file(
+    name: &str,
+    content: &[u8],
+    repo: &git2::Repository,
+    builder: &mut git2::TreeBuilder<'_>
+) -> bool {
+    let tree = match builder.get(name) {
+        Ok(Some(v)) => v,
+        Ok(None) => return false,
+        Err(err) => {
+            tracing::warn!("Could not get TreeEntry with given name '{name}': {err}");
+            return false
+        }
+    };
+    let object = match tree.to_object(repo) {
+        Ok(v) => v,
+        Err(err) => {
+            tracing::warn!("Could not get object of TreeEntry with name '{name}': {err}");
+            return false;
+        }
+    };
+    let blob = match object.peel_to_blob() {
+        Ok(v) => v,
+        Err(err) => {
+            tracing::warn!("TreeEntry (with name '{name}') object did not point to a blob?: {err}");
+            return false;
+        }
+    };
+    blob.content() == content
+}
 pub fn add_files_top(
     files: Vec<(&[u8], &str)>,
     repo: &git2::Repository,
     builder: &mut git2::TreeBuilder<'_>
 ) -> Result<git2::Oid, Cow<'static, str>> {
     for (bytes, name) in files {
+        if has_file(name, bytes, repo, builder) { continue; }
         let oid = match repo.blob(bytes) {
             Ok(oid) => oid,
             Err(err) => {
