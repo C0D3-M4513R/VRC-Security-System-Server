@@ -153,6 +153,8 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
             rocket::api::club::image::put_image,
             rocket::api::club::image::get_image,
 
+            rocket::get_index,
+            rocket::get_favicon,
             rocket::club::get_club,
             rocket::club::instance::get_club_instance,
             rocket::club::vrchat_permissions::get_club_vrc_names,

@@ -5,6 +5,15 @@ pub mod api;
 pub mod auth;
 pub mod club;
 
+#[rocket::get("/")]
+pub fn get_index() -> rocket::response::Redirect {
+    rocket::response::Redirect::to("/clubs")
+}
+#[rocket::get("/favicon.ico")]
+pub fn get_favicon() -> (rocket::http::ContentType, &'static[u8]) {
+    (rocket::http::ContentType::Icon, include_bytes!("../favicon.ico"))
+}
+
 pub struct AskamaWrapper<T>(pub T);
 impl<'r, 'o:'r, T: askama::Template + 'r> ::rocket::response::Responder<'r, 'o> for AskamaWrapper<T> {
     fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
