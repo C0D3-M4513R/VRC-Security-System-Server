@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::cmp::min;
-use crate::rocket::{AskamaWrapper, Response};
+use crate::rocket::{AskamaWrapper, ETag, IfNoneMatch, Response};
 use crate::rocket::auth::discord::{AuthErr, JWT};
 use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
@@ -195,25 +195,74 @@ if false {
 }
 
 pub const PLACEHOLDER_PNG:&[u8] = include_bytes!("../../../../1x1-00000000.png");
+pub const PLACEHOLDER_PNG_SHA3_512:&[u8] = include_bytes!("../../../../1x1-00000000.png.sha3-512");
+pub const PLACEHOLDER_PNG_ETAG:ETag<'static> = ETag {
+    status: rocket::http::Status::Ok,
+    data: Some(Cow::Borrowed(PLACEHOLDER_PNG)),
+    sha3_512: Cow::Borrowed(PLACEHOLDER_PNG_SHA3_512),
+};
+
 #[rocket::get("/api/club/<club>/image/<name>")]
-pub async fn get_image(auth: Result<JWT, AuthErr>, club: &str, name: &str) -> Response<(rocket::http::ContentType, Cow<'static, [u8]>)> {
+pub async fn get_image(auth: Result<JWT, AuthErr>, etag: IfNoneMatch, club: &str, name: &str) -> Response<(rocket::http::ContentType, ETag<'static>)> {
     let _ = match auth {
         Ok(jwt) => jwt,
         Err(err) => return Response::AuthErr(err),
     };
     let db = crate::get_db().await;
+    macro_rules! make_etag {
+        ($ident:ident) => {
+            ETag{
+                status: rocket::http::Status::Ok,
+                data: Some(Cow::Owned($ident.image)),
+                sha3_512: Cow::Owned($ident.digest),
+            }
+        };
+        (etag, $ident:ident) => {
+            ETag{
+                status: rocket::http::Status::Ok,
+                data: None,
+                sha3_512: Cow::Owned($ident.digest),
+            }
+        };
+    }
+    for i in etag.0 {
+        match match name {
+            "Logo.png" => sqlx::query!(r#"SELECT true as dummy FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
+            "Poster1.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
+            "Poster2.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster2 INNER JOIN club ON club_poster2.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
+            "Poster3.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster3 INNER JOIN club ON club_poster3.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
+            _ => return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
+                error: Cow::Borrowed("Invalid image name"),
+                error_description: None,
+            }))),
+        }{
+            Ok(Some(())) => return Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), ETag{
+                status: rocket::http::Status::Ok,
+                data: None,
+                sha3_512: Cow::Owned(i),
+            })),
+            Ok(None) => {},
+            Err(err) => {
+                tracing::error!("Failed to get Image: {err}");
+                return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+                    error: Cow::Borrowed("Failed get Image from DB"),
+                    error_description: Some(err.to_string().into()),
+                })));
+            }
+        }
+    }
     match match name {
-        "Logo.png" => sqlx::query!(r#"SELECT image FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|v.image)),
-        "Poster1.png" => sqlx::query!(r#"SELECT image FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|v.image)),
-        "Poster2.png" => sqlx::query!(r#"SELECT image FROM club_poster2 INNER JOIN club ON club_poster2.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|v.image)),
-        "Poster3.png" => sqlx::query!(r#"SELECT image FROM club_poster3 INNER JOIN club ON club_poster3.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|v.image)),
+        "Logo.png" => sqlx::query!(r#"SELECT image, digest FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
+        "Poster1.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
+        "Poster2.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster2 INNER JOIN club ON club_poster2.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
+        "Poster3.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster3 INNER JOIN club ON club_poster3.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
         _ => return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
             error: Cow::Borrowed("Invalid image name"),
             error_description: None,
         }))),
     }{
-        Ok(Some(v)) => Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), Cow::Owned(v))),
-        Ok(None) => Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), Cow::Borrowed(PLACEHOLDER_PNG))),
+        Ok(Some(v)) => Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), v)),
+        Ok(None) => Response::Ok((rocket::http::ContentType(rocket::http::MediaType::PNG), PLACEHOLDER_PNG_ETAG)),
         Err(err) => {
             tracing::error!("Failed to get Image: {err}");
             Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{

@@ -1,4 +1,7 @@
+use std::borrow::Cow;
+use base64::Engine;
 use rocket::{Request, Responder};
+use rocket::request::Outcome;
 use crate::rocket::auth::discord::AuthErr;
 
 pub mod api;
@@ -33,6 +36,61 @@ impl<'r, 'o:'r, T: askama::Template + 'r> ::rocket::response::Responder<'r, 'o> 
     </body>
 "#)).respond_to(request),
         }
+    }
+}
+
+pub struct ETag<'a> {
+    status: rocket::http::Status,
+    data: Option<Cow<'a, [u8]>>,
+    sha3_512: Cow<'a, [u8]>,
+}
+#[rocket::async_trait]
+impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for ETag<'o> {
+    fn respond_to(self, _: &'r Request<'_>) -> rocket::response::Result<'o> {
+        let mut response = rocket::response::Response::new();
+        let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
+        response.adjoin_header(rocket::http::Header::new("ETag", format!("sha3_512-{header_base64}")));
+        response.set_status(self.status);
+        if let Some(data) = self.data {
+            response.set_sized_body(data.len(), std::io::Cursor::new(data));
+        } else {
+            response.set_status(rocket::http::Status::NotModified);
+        }
+        Ok(response)
+    }
+}
+
+pub struct IfNoneMatch(pub Vec<Vec<u8>>);
+#[rocket::async_trait]
+impl<'r> rocket::request::FromRequest<'r> for IfNoneMatch {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let mut vec = Vec::new();
+        for header in request.headers().get("If-None-Match") {
+            for header in header.split(","){
+                let header = header.trim();
+                if header.starts_with("W/"){
+                    continue;
+                }
+                let header = if let Some(v) = header.strip_prefix(r#"""#) {
+                    if let Some(v) = v.strip_suffix(r#"""#) {
+                        v
+                    } else {
+                        continue;
+                    }
+                } else {
+                    header
+                };
+                if let Some(header) = header.strip_prefix("sha3_512-"){
+                    if let Ok(v) = base64::engine::general_purpose::STANDARD.decode(header) {
+                        vec.push(v);
+                    }
+                }
+
+            }
+        }
+        Outcome::Success(IfNoneMatch(vec))
     }
 }
 
