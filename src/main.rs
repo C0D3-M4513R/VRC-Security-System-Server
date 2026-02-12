@@ -52,7 +52,7 @@ fn main() -> ::anyhow::Result<()> {
         tracing::info!("Initialized Logging.")
     }
 
-    let repo_path_str = std::env::var("NEOLUMA_GIT_REPO_DIR")?;
+    let repo_path_str = std::env::var("GIT_REPO_DIR")?;
     let repo_path = std::path::Path::new(&repo_path_str);
     let repo = match repo_path.metadata() {
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -98,10 +98,10 @@ fn main() -> ::anyhow::Result<()> {
         }
     };
 
-    let pk = std::env::var("NEOLUMA_SPHINCSPLUS_PK").map_err(|err|::anyhow::format_err!("Could not find NEOLUMA_SPHINCSPLUS_PK: {err}"))?;
-    let sk = std::env::var("NEOLUMA_SPHINCSPLUS_SK").map_err(|err|::anyhow::format_err!("Could not find NEOLUMA_SPHINCSPLUS_SK: {err}"))?;
-    let pk = base64::engine::general_purpose::STANDARD.decode(pk.as_bytes()).map_err(|err|::anyhow::format_err!("Could not base64 decode NEOLUMA_SPHINCSPLUS_PK: {err}"))?;
-    let sk = base64::engine::general_purpose::STANDARD.decode(sk.as_bytes()).map_err(|err|::anyhow::format_err!("Could not base64 decode NEOLUMA_SPHINCSPLUS_SK: {err}"))?;
+    let pk = std::env::var("SPHINCSPLUS_PK").map_err(|err|::anyhow::format_err!("Could not find SPHINCSPLUS_PK: {err}"))?;
+    let sk = std::env::var("SPHINCSPLUS_SK").map_err(|err|::anyhow::format_err!("Could not find SPHINCSPLUS_SK: {err}"))?;
+    let pk = base64::engine::general_purpose::STANDARD.decode(pk.as_bytes()).map_err(|err|::anyhow::format_err!("Could not base64 decode SPHINCSPLUS_PK: {err}"))?;
+    let sk = base64::engine::general_purpose::STANDARD.decode(sk.as_bytes()).map_err(|err|::anyhow::format_err!("Could not base64 decode SPHINCSPLUS_SK: {err}"))?;
     let pk = pk.as_chunks::<{sphincsplus::CRYPTO_PUBLICKEYBYTES as usize}>();
     let sk = sk.as_chunks::<{sphincsplus::CRYPTO_SECRETKEYBYTES as usize}>();
     if pk.1.len() != 0 || sk.0.len() != 1 { anyhow::bail!("Public key should be {} bytes long", sphincsplus::CRYPTO_PUBLICKEYBYTES) }
@@ -126,10 +126,10 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
 
     let limits = Limits {
         max_permission_level:
-            std::env::var("NEOLUMA_MAX_PERMISSION_LEVEL")
-                .map_err(|err|::anyhow::format_err!("Could not find NEOLUMA_MAX_PERMISSION_LEVEL: {err}"))?
+            std::env::var("MAX_PERMISSION_LEVEL")
+                .map_err(|err|::anyhow::format_err!("Could not find MAX_PERMISSION_LEVEL: {err}"))?
                 .parse::<u64>()
-                .map_err(|err|::anyhow::format_err!("Could not parse NEOLUMA_MAX_PERMISSION_LEVEL as u64: {err}"))?
+                .map_err(|err|::anyhow::format_err!("Could not parse MAX_PERMISSION_LEVEL as u64: {err}"))?
                 .min(i16::MAX as u64)
         ,
         max_manage_permission_level: i32::MAX as u64,

@@ -3,11 +3,11 @@ use std::ffi::OsString;
 use std::path::Path;
 
 pub fn add_auth(callbacks: &mut git2::RemoteCallbacks) -> Result<(), Cow<'static, str>> {
-    static NEOLUMA_GIT_REPO_PUBLICKEY_PATH:std::sync::LazyLock<Result<OsString, &str>> = std::sync::LazyLock::new(||std::env::var_os("NEOLUMA_GIT_REPO_PUBLICKEY_PATH").ok_or("NEOLUMA_GIT_REPO_PUBLICKEY_PATH environment variable not set"));
-    static NEOLUMA_GIT_REPO_PRIVATEKEY_PATH:std::sync::LazyLock<Result<OsString, &str>> = std::sync::LazyLock::new(||std::env::var_os("NEOLUMA_GIT_REPO_PRIVATEKEY_PATH").ok_or("NEOLUMA_GIT_REPO_PRIVATEKEY_PATH environment variable not set"));
+    static GIT_REPO_PUBLICKEY_PATH:std::sync::LazyLock<Result<OsString, &str>> = std::sync::LazyLock::new(||std::env::var_os("GIT_REPO_PUBLICKEY_PATH").ok_or("GIT_REPO_PUBLICKEY_PATH environment variable not set"));
+    static GIT_REPO_PRIVATEKEY_PATH:std::sync::LazyLock<Result<OsString, &str>> = std::sync::LazyLock::new(||std::env::var_os("GIT_REPO_PRIVATEKEY_PATH").ok_or("GIT_REPO_PRIVATEKEY_PATH environment variable not set"));
 
-    let publickey = NEOLUMA_GIT_REPO_PUBLICKEY_PATH.as_ref().map_err(|v|Cow::Borrowed(*v))?;
-    let privatekey = NEOLUMA_GIT_REPO_PRIVATEKEY_PATH.as_ref().map_err(|v|Cow::Borrowed(*v))?;
+    let publickey = GIT_REPO_PUBLICKEY_PATH.as_ref().map_err(|v|Cow::Borrowed(*v))?;
+    let privatekey = GIT_REPO_PRIVATEKEY_PATH.as_ref().map_err(|v|Cow::Borrowed(*v))?;
 
     callbacks.credentials(move |url, username, allowed_types|{
         tracing::info!("Git: Auth request for {url} {username:?} {allowed_types:?}");

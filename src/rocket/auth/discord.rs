@@ -7,24 +7,27 @@ use std::fmt::{Display, Formatter};
 use std::num::NonZeroU16;
 use std::str::FromStr;
 use std::time::{UNIX_EPOCH};
+use reqwest::Url;
 use rocket::Request;
 use rocket::request::{FromRequest, Outcome};
 use rocket::serde::Deserialize;
 use serde_derive::Serialize;
 use crate::rocket::AskamaWrapper;
 
-const OAUTH_URL: rocket::http::uri::Absolute<'static> = rocket::uri!("https://neoluma.c0d3m4513r.com/api/auth/discord/oauth");
 const DISCORD_TOKEN_COOKIE_NAME: &str = "discord_jwt";
 pub struct Discord {
     id: serenity::model::prelude::ApplicationId,
     secret: String,
     client: reqwest::Client,
+    oauth_redirect_url: rocket::http::uri::Absolute<'static>,
 }
 
 pub async fn setup() -> ::anyhow::Result<(serenity::Client, Discord)> {
-    let discord_app_id = std::env::var("NEOLUMA_DISCORD_ID").map_err(|err|::anyhow::format_err!("Could not find NEOLUMA_DISCORD_ID: {err}"))?;
-    let secret = std::env::var("NEOLUMA_DISCORD_SECRET").map_err(|err|::anyhow::format_err!("Could not find NEOLUMA_DISCORD_SECRET: {err}"))?;
-    let token = std::env::var("NEOLUMA_DISCORD_TOKEN").map_err(|err|::anyhow::format_err!("Could not find NEOLUMA_DISCORD_TOKEN: {err}"))?;
+    let discord_app_id = std::env::var("DISCORD_ID").map_err(|err|::anyhow::format_err!("Could not find DISCORD_ID: {err}"))?;
+    let secret = std::env::var("DISCORD_SECRET").map_err(|err|::anyhow::format_err!("Could not find DISCORD_SECRET: {err}"))?;
+    let token = std::env::var("DISCORD_TOKEN").map_err(|err|::anyhow::format_err!("Could not find DISCORD_TOKEN: {err}"))?;
+    let return_url = std::env::var("DISCORD_OAUTH_RETURN_URL").map_err(|err|::anyhow::format_err!("Could not find DISCORD_OAUTH_RETURN_URL: {err}"))?;
+    let return_url = rocket::http::uri::Absolute::parse_owned(return_url).map_err(|err|::anyhow::format_err!("Failed to parse DISCORD_OAUTH_RETURN_URL as an Absolute url: {err}"))?;;
     let discord_app_id = match serenity::model::prelude::ApplicationId::from_str(discord_app_id.as_str()) {
         Ok(discord_app_id) => discord_app_id,
         Err(err) => anyhow::bail!("Failed to parse discord application ID: {err}")
@@ -39,6 +42,7 @@ pub async fn setup() -> ::anyhow::Result<(serenity::Client, Discord)> {
         id: discord_app_id,
         secret,
         client: reqwest::Client::new(),
+        oauth_redirect_url: return_url,
     }))
 }
 
@@ -92,7 +96,7 @@ impl JWT {
         let token = ExchangeToken{
             grant_type: Cow::Borrowed("authorization_code"),
             code: Cow::Borrowed(code),
-            redirect_uri: Cow::Owned(OAUTH_URL.to_string()),
+            redirect_uri: Cow::Owned(discord.oauth_redirect_url.to_string()),
         };
         let request = discord.client.post("https://discord.com/api/v10/oauth2/token")
             .basic_auth(discord.id.get(), Some(&discord.secret))
