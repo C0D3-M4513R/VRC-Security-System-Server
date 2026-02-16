@@ -2,6 +2,7 @@ use crate::rocket::api::club::Permissions;
 
 pub struct Club {
     pub name: String,
+    pub code: u64,
     pub path_name: String,
 }
 

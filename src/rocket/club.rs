@@ -20,6 +20,7 @@ pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response<AskamaWrapper<Club
     let res = match sqlx::query!(r#"
         SELECT
             public.club."path-name" as path_name,
+            public.club.code as code,
             public.club.name as name
         FROM club
             INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0
@@ -49,7 +50,7 @@ pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response<AskamaWrapper<Club
     };
 
     Response::Ok(AskamaWrapper(Clubs{
-        clubs: res.into_iter().map(|c| Club{path_name: c.path_name, name: c.name}).collect(),
+        clubs: res.into_iter().map(|c| Club{path_name: c.path_name, code: c.code.cast_unsigned(), name: c.name}).collect(),
         permission
     }))
 }

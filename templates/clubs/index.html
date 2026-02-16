@@ -36,6 +36,13 @@
         </tr>
         </tbody>
     </table>
+    <h2>Unity Code-Saver Editor/Inspector String:</h2>
+    <p>
+{% for club in clubs %}
+{% if club.code == 0 %}{% continue %}{% endif %}
+{{club.code}},{{club.path_name}}<br>
+{% endfor %}
+    </p>
     {% endif %}
 
     <h1>Clubs</h1>
