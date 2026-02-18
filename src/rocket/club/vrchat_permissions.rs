@@ -4,11 +4,11 @@ use crate::modals::club_instance::ClubInstance;
 use crate::modals::err::Err;
 use crate::modals::club_vrchat_permissions::{*};
 use crate::rocket::api::club::build_permission_from_res;
-use crate::rocket::{AskamaWrapper, Response};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::{AskamaWrapper, Response, State};
+use crate::rocket::auth::discord::JWT;
 
-#[rocket::get("/clubs/<club>/vrchat_permissions")]
-pub async fn get_club_vrc_names<'r>(auth: Result<JWT, AuthErr>, limits: &'r rocket::State<Limits>, club: &str) -> Response<AskamaWrapper<ClubVRCPermissions<'r>>> {
+#[actix_web::get("/clubs/<club>/vrchat_permissions")]
+pub async fn get_club_vrc_names<'r>(auth: State<'r, JWT>, limits: &'r actix_web::web::Data<Limits>, club: &str) -> Response<AskamaWrapper<ClubVRCPermissions<'r>>> {
     let auth = match auth {
         Ok(a) => a,
         Err(e) => return Response::AuthErr(e),
@@ -33,14 +33,14 @@ pub async fn get_club_vrc_names<'r>(auth: Result<JWT, AuthErr>, limits: &'r rock
     ).fetch_optional(&db)
         .await {
         Ok(Some(res)) => res,
-        Ok(None) => return Response::Error((rocket::http::Status::Forbidden, AskamaWrapper(Err{
+        Ok(None) => return Response::Error(Some(actix_web::http::StatusCode::FORBIDDEN), AskamaWrapper(Err{
             error: Cow::Borrowed("You do not have permission to access this Club!"),
             error_description: None,
-        }))),
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err {
+        })),
+        Err(_) => return Response::Error(None, AskamaWrapper(Err {
             error: Cow::Borrowed("Failed to fetch your permissions across club's from the Database"),
             error_description: None
-        }))),
+        })),
     };
 
 
@@ -58,10 +58,10 @@ pub async fn get_club_vrc_names<'r>(auth: Result<JWT, AuthErr>, limits: &'r rock
     ).fetch_all(&db)
         .await {
         Ok(res) => res,
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err {
+        Err(_) => return Response::Error(None, AskamaWrapper(Err {
             error: Cow::Borrowed("Failed to fetch your permissions across club's from the Database"),
             error_description: None
-        }))),
+        })),
     };
 
     let perms = build_permission_from_res!(res);

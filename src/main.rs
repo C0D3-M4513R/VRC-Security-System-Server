@@ -6,11 +6,11 @@ mod rocket;
 mod git;
 mod modals;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Limits {
     max_permission_level: u64,
     max_manage_permission_level: u64,
-    git_repo_visit_url: String,
+    git_repo_visit_url: Arc<str>,
 }
 
 #[derive(Copy, Clone)]
@@ -112,12 +112,21 @@ fn main() -> ::anyhow::Result<()> {
         secret: sk.0[0],
     };
 
-    ::rocket::execute(main_async(repo, mk))
+    main_async(repo, mk)
 }
 
+#[actix_web::main]
 async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()> {
     let _ = get_db().await;
     let discord = rocket::auth::discord::setup().await?;
+    let key = {
+        let secret_key = std::env::var("ROCKET_SECRET_KEY")
+            .map_err(|err|::anyhow::format_err!("Could not find MAX_PERMISSION_LEVEL: {err}"))?
+            .map(|v|base64::engine::general_purpose::STANDARD.decode(v))
+            .map_err(|err|::anyhow::format_err!("Could not decode contents of ROCKET_SECRET_KEY as base64: {err}"))?;
+        actix_web::cookie::Key::try_from(secret_key.as_slice())
+            .map_err(|err|anyhow::format_err!("Could not parse secret key: {err}"))?
+    };
 
     let limits = Limits {
         max_permission_level:
@@ -125,54 +134,68 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
                 .map_err(|err|::anyhow::format_err!("Could not find MAX_PERMISSION_LEVEL: {err}"))?
                 .parse::<u64>()
                 .map_err(|err|::anyhow::format_err!("Could not parse MAX_PERMISSION_LEVEL as u64: {err}"))?
-                .min(i16::MAX as u64)
         ,
         max_manage_permission_level: i32::MAX as u64,
         git_repo_visit_url:
             std::env::var("GIT_REPO_VISIT_URL")
-               .map_err(|err|::anyhow::format_err!("Could not find GIT_REPO_VISIT_URL: {err}"))?
+                .map_err(|err|::anyhow::format_err!("Could not find GIT_REPO_VISIT_URL: {err}"))?
+                .into()
         ,
     };
+    let repo = Mutex::new(repo);
+    actix_web::HttpServer::new(||{
+        let mut app = actix_web::App::new()
+            .wrap(actix_web::middleware::Logger::default());
 
-    let rocket  = ::rocket::Rocket::build()
-        .mount("/", ::rocket::routes![
+        macro_rules! register_routes {
+            ($ident:ident,$($expr:expr),*) => {
+                $(let $ident = $ident.service($expr);)*
+            };
+        }
+        register_routes!(app,
             rocket::auth::discord::new::new_oauth,
             rocket::auth::discord::oauth::oauth_ok,
             rocket::auth::discord::err::oauth_err,
             rocket::auth::discord::logout::logout,
-
-            rocket::api::club::code_replacements::put_club_replacement,
-            rocket::api::club::code_replacements::delete_club_replacement,
-            rocket::api::club::vrcuser_level::put_vrcuser_level,
-            rocket::api::club::vrcuser_level::delete_vrcuser_level,
-            rocket::api::club::club_name::put_club_name,
-            rocket::api::club::manage_permissions::put_club_permission,
-            rocket::api::club::manage_permissions::new_club_permission,
-            rocket::api::club::manage_permissions::delete_club_permission,
-            rocket::api::club::publish::post_publish,
-            rocket::api::club::image::put_image,
-            rocket::api::club::image::get_image,
-            rocket::api::club::new::put_club,
-            rocket::api::discord::put_discord_info,
-
-            rocket::get_index,
             rocket::get_favicon,
-            rocket::club::get_club,
-            rocket::club::instance::get_club_instance,
-            rocket::club::vrchat_permissions::get_club_vrc_names,
-            rocket::club::manage_permissions::get_club_discord_permissions,
-        ])
-        .manage(Arc::new(Mutex::new(repo)))
-        .manage(mk)
-        .manage(discord)
-        .manage(limits)
-    ;
+            rocket::get_index
+        );
+        let app = {
+            let scope = actix_web::web::scope("/auth");
+            scope.wrap(actix_web::middleware::from_fn(crate::rocket::auth::discord::my_middleware));
+            register_routes!(scope,
+                rocket::api::club::code_replacements::put_club_replacement,
+                rocket::api::club::code_replacements::delete_club_replacement,
+                rocket::api::club::vrcuser_level::put_vrcuser_level,
+                rocket::api::club::vrcuser_level::delete_vrcuser_level,
+                rocket::api::club::club_name::put_club_name,
+                rocket::api::club::manage_permissions::put_club_permission,
+                rocket::api::club::manage_permissions::new_club_permission,
+                rocket::api::club::manage_permissions::delete_club_permission,
+                rocket::api::club::publish::post_publish,
+                rocket::api::club::image::put_image,
+                rocket::api::club::image::get_image,
+                rocket::api::club::new::put_club,
+                rocket::api::discord::put_discord_info,
 
-    tracing::info!("Igniting Rocket");
-    let rocket = rocket.ignite().await?;
-    tracing::info!("Ignited Rocket. About to Launch!");
-    rocket.launch().await?;
-    tracing::info!("Rocket Shutdown Now in progress");
+                rocket::club::get_club,
+                rocket::club::instance::get_club_instance,
+                rocket::club::vrchat_permissions::get_club_vrc_names,
+                rocket::club::manage_permissions::get_club_discord_permissions
+            );
+            app.service(scope)
+        };
+
+        let app = app.app_data(actix_web::web::Data::new(repo));
+        let app = app.app_data(mk);
+        let app = app.app_data(discord.clone());
+        let app = app.app_data(limits.clone());
+        app
+    }).bind_uds("server.socket")
+        .expect("expected to be able to start a server")
+        .run()
+        .await
+        .expect("Expected server run to exit successfully");
 
     Ok(())
 }

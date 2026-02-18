@@ -1,28 +1,15 @@
 use std::borrow::Cow;
-use rocket::Responder;
-use crate::rocket::AskamaWrapper;
+use crate::rocket::{AskamaWrapper, State};
 use crate::rocket::auth::discord::{AuthErr, JWT};
 use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
+use crate::rocket::Response;
 
-#[derive(Responder)]
-pub enum Response {
-    Ok(rocket::response::Redirect),
-    AuthErr(AuthErr),
-    Error((rocket::http::Status, AskamaWrapper<Err<'static>>)),
-    Err((rocket::http::Status, Cow<'static, str>)),
-}
-
-#[rocket::put("/api/club/<club>/code_replacements/<target_club>")]
-pub async fn put_club_replacement<'r>(auth: Result<JWT, AuthErr>, club: &'r str, target_club: &'r str) -> Response {
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
-
+#[actix_web::put("/api/club/<club>/code_replacements/<target_club>")]
+pub async fn put_club_replacement<'r>(auth: State<'r, JWT>, club: &'r str, target_club: &'r str) -> Response<()> {
     match Permissions::require_permission(&auth, club, |v|v.add_allowed_code_replacements).await {
         Ok(()) => {}
-        Err(err) => return Response::Error(err),
+        Err((code, err)) => return Response::Error(Some(code), err),
     }
     let db = crate::get_db().await;
     let table = match sqlx::query!(
@@ -35,13 +22,13 @@ pub async fn put_club_replacement<'r>(auth: Result<JWT, AuthErr>, club: &'r str,
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to add_allowed_code_replacements: {err}");
-            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+            return Response::Error(None, AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed to add_allowed_code_replacements in DB"),
                 error_description: Some(err.to_string().into()),
-            })))
+            }))
         }
     };
-    let redir = Response::Ok(rocket::response::Redirect::to(format!("/clubs/{club}")));
+    let redir = Response::Redirect(None, format!("/clubs/{club}").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
@@ -54,16 +41,11 @@ pub async fn put_club_replacement<'r>(auth: Result<JWT, AuthErr>, club: &'r str,
     redir
 }
 
-#[rocket::delete("/api/club/<club>/code_replacements/<target_club>")]
-pub async fn delete_club_replacement<'r>(auth: Result<JWT, AuthErr>, club: &'r str, target_club: &'r str) -> Response {
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
-
+#[actix_web::delete("/api/club/<club>/code_replacements/<target_club>")]
+pub async fn delete_club_replacement<'r>(auth: State<'r, JWT>, club: &'r str, target_club: &'r str) -> Response<()> {
     match Permissions::require_permission(&auth, club, |v|v.remove_allowed_code_replacements).await {
         Ok(()) => {}
-        Err(err) => return Response::Error(err),
+        Err((code, err)) => return Response::Error(Some(code), err),
     }
     let db = crate::get_db().await;
     let table = match sqlx::query!(
@@ -76,14 +58,14 @@ pub async fn delete_club_replacement<'r>(auth: Result<JWT, AuthErr>, club: &'r s
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to remove_allowed_code_replacements: {err}");
-            return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(Err{
+            return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed to remove_allowed_code_replacements in DB"),
                 error_description: Some(err.to_string().into()),
-            })))
+            }))
         }
     };
 
-    let redir = Response::Ok(rocket::response::Redirect::to(format!("/clubs/{club}")));
+    let redir = Response::Redirect(None, format!("/clubs/{club}").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

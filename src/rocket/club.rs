@@ -9,8 +9,8 @@ use crate::rocket::api::club::build_permission_from_res;
 use crate::modals::err::Err;
 use crate::modals::clubs::{Club, Clubs};
 
-#[rocket::get("/clubs")]
-pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response<AskamaWrapper<Clubs>> {
+#[actix_web::get("/clubs")]
+pub async fn get_club(auth: State<JWT>) -> Response<AskamaWrapper<Clubs>> {
     let auth = match auth {
         Ok(a) => a,
         Err(e) => return Response::AuthErr(e),
@@ -29,7 +29,7 @@ pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response<AskamaWrapper<Club
     "#, auth.get_user_id().cast_signed()).fetch_all(&db)
         .await {
         Ok(res) => res,
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error((actix_web::http::StatusCode::InternalServerError, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to fetch your permissions across club's from the Database"),
             error_description: None
         }))),
@@ -43,7 +43,7 @@ pub async fn get_club(auth: Result<JWT, AuthErr>) -> Response<AskamaWrapper<Club
         .await {
         Ok(Some(v)) => Some(build_permission_from_res!(v)),
         Ok(None) => None,
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error((actix_web::http::StatusCode::InternalServerError, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to fetch your permissions across from the Database"),
             error_description: None
         }))),

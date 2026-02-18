@@ -13,7 +13,7 @@ pub mod new;
 
 pub(crate) const CLUB_OWNERS:&str = "!CLUB-OWNERS";
 
-#[derive(Debug, serde_derive::Deserialize, serde_derive::Serialize, rocket::form::FromForm)]
+#[derive(Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct Permissions{
     pub add_discord_user: bool,
     pub remove_discord_user: bool,
@@ -130,8 +130,8 @@ impl Permissions {
         }
     }
     #[inline]
-    pub async fn require_permission(jwt: &JWT, path: &str, permission: impl FnOnce(&Self) -> bool) -> Result<(), (rocket::http::Status, AskamaWrapper<Err<'static>>)> {
-        let err = (rocket::http::Status::Unauthorized, AskamaWrapper(Err{
+    pub async fn require_permission(jwt: &JWT, path: &str, permission: impl FnOnce(&Self) -> bool) -> Result<(), (actix_web::http::StatusCode, AskamaWrapper<Err<'static>>)> {
+        let err = (actix_web::http::StatusCode::UNAUTHORIZED, AskamaWrapper(Err{
             error: Cow::Borrowed("No Permission"),
             error_description: None,
         }));
@@ -142,7 +142,7 @@ impl Permissions {
             } else {
                 Err(err)
             },
-            Err(err) => Err((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+            Err(err) => Err((actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed to get permissions from db"),
                 error_description: Some(Cow::Owned(err.to_string())),
             }))),

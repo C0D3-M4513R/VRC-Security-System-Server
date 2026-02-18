@@ -8,25 +8,25 @@ use std::fmt::{Display, Formatter};
 use std::num::NonZeroU16;
 use std::str::FromStr;
 use std::time::{UNIX_EPOCH};
-use rocket::Request;
-use rocket::request::{FromRequest, Outcome};
-use rocket::serde::Deserialize;
-use serde_derive::Serialize;
+use actix_web::body::BoxBody;
+use actix_web::{HttpMessage, Responder};
+use askama::Template;
 use crate::rocket::AskamaWrapper;
 
 const DISCORD_TOKEN_COOKIE_NAME: &str = "discord_jwt";
+#[derive(Clone)]
 pub struct Discord {
     id: serenity::model::prelude::ApplicationId,
     secret: String,
     client: reqwest::Client,
-    oauth_redirect_url: rocket::http::uri::Absolute<'static>,
+    oauth_redirect_url: actix_web::http::uri::Uri,
 }
 
 pub async fn setup() -> ::anyhow::Result<Discord> {
     let discord_app_id = std::env::var("DISCORD_ID").map_err(|err|::anyhow::format_err!("Could not find DISCORD_ID: {err}"))?;
     let secret = std::env::var("DISCORD_SECRET").map_err(|err|::anyhow::format_err!("Could not find DISCORD_SECRET: {err}"))?;
     let return_url = std::env::var("DISCORD_OAUTH_RETURN_URL").map_err(|err|::anyhow::format_err!("Could not find DISCORD_OAUTH_RETURN_URL: {err}"))?;
-    let return_url = rocket::http::uri::Absolute::parse_owned(return_url).map_err(|err|::anyhow::format_err!("Failed to parse DISCORD_OAUTH_RETURN_URL as an Absolute url: {err}"))?;
+    let return_url = actix_web::http::uri::Uri::try_from(return_url).map_err(|err|::anyhow::format_err!("Failed to parse DISCORD_OAUTH_RETURN_URL as an Absolute url: {err}"))?;
     let discord_app_id = match serenity::model::prelude::ApplicationId::from_str(discord_app_id.as_str()) {
         Ok(discord_app_id) => discord_app_id,
         Err(err) => anyhow::bail!("Failed to parse discord application ID: {err}")
@@ -40,13 +40,22 @@ pub async fn setup() -> ::anyhow::Result<Discord> {
     })
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+pub struct JWT{
+    jwt: JWTInternal,
+}
+impl core::ops::Deref for JWT {
+    type Target = JWTInternal;
+    fn deref(&self) -> &Self::Target {
+        &self.jwt
+    }
+}
+#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
 #[non_exhaustive]
-pub enum JWT {
+enum JWTInternal {
     V1(TokenMeta)
 }
 
-impl JWT {
+impl JWTInternal {
     pub fn is_valid(&self) -> ::anyhow::Result<bool> {
         match self {
             Self::V1(v) => v.is_valid(),
@@ -103,7 +112,7 @@ impl JWT {
             .map_err(|err| ::anyhow::format_err!("Failed to receive reply to exchange token post-request: {err}"))?
             ;
 
-        let token = rocket::serde::json::from_slice::<Token>(&request)
+        let token = serde_json::from_slice::<Token>(&request)
             .map_err(|err| ::anyhow::format_err!("Failed to parse reply to exchange token post-request as an access-token: {err}"))?;
 
         let time = std::time::SystemTime::now()
@@ -127,7 +136,7 @@ impl JWT {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct TokenMeta {
     token: Token,
     created_at: u64,
@@ -163,7 +172,7 @@ impl TokenMeta {
             .map_err(|err| ::anyhow::format_err!("Failed to receive reply to refresh token post-request: {err}"))?
         ;
 
-        let token = rocket::serde::json::from_slice(&request)
+        let token = serde_json::from_slice(&request)
             .map_err(|err| ::anyhow::format_err!("Failed to parse reply to refresh token post-request as an access-token: {err}"))?;
 
         self.token = token;
@@ -262,7 +271,7 @@ impl TokenMeta {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct Token {
     pub access_token: String,
     pub token_type: String,
@@ -270,7 +279,7 @@ pub struct Token {
     pub refresh_token: String,
     pub scope: String,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
 struct RefreshToken<'a> {
     grant_type: Cow<'a, str>,
     refresh_token: Cow<'a, str>,
@@ -284,7 +293,7 @@ impl<'a> From<&'a Token> for RefreshToken<'a> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
 struct ExchangeToken<'a> {
     grant_type: Cow<'a, str>,
     code: Cow<'a, str>,
@@ -297,6 +306,9 @@ pub enum AuthErr {
     DeserialisationError(::anyhow::Error),
     ValidationError(::anyhow::Error),
     NoDiscord,
+    NoSecretKey,
+    NoCookieSet,
+    CookieHeaderInvalidValue(::actix_web::http::header::InvalidHeaderValue),
     RefreshError(::anyhow::Error),
     SerialisationError(::anyhow::Error),
 }
@@ -308,6 +320,9 @@ impl Display for AuthErr {
             AuthErr::DeserialisationError(err) => write!(f, "Failed to deserialize cookie value: {}", err),
             AuthErr::ValidationError(err) => write!(f, "Failed to validate if the cookie has expired: {}", err),
             AuthErr::NoDiscord => write!(f, "No Discord OAuth information found"),
+            AuthErr::NoSecretKey => write!(f, "No Secret Key for Private Cookies found"),
+            AuthErr::NoCookieSet => write!(f, "Could not get Cookie, even though we just created one. WHO IS EATING MY COOKIES?!?"),
+            AuthErr::CookieHeaderInvalidValue(err) => write!(f, "There was an error converting the Cookie to a Set-Header value: {err}"),
             AuthErr::RefreshError(err) => write!(f, "Error whilst refreshing Discord-OAuth access-token: {}", err),
             AuthErr::SerialisationError(err) => write!(f, "Error whilst Serializing Discord-OAuth information: {}", err),
         }
@@ -321,20 +336,14 @@ impl std::error::Error for AuthErr {
             AuthErr::SerialisationError(err) => Some(&**err),
             AuthErr::ValidationError(err) => Some(&**err),
             AuthErr::RefreshError(err) => Some(&**err),
+            AuthErr::CookieHeaderInvalidValue(err) => Some(&**err),
             _ => None,
         }
     }
 }
-
-#[derive(askama::Template)]
-#[template(path = "api/auth/discord/need-login.html")]
-struct NeedLogin{
-    description: Cow<'static, str>,
-}
-
-impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for AuthErr {
-    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
-        (rocket::http::Status::Unauthorized, AskamaWrapper(match self {
+impl actix_web::ResponseError for AuthErr {
+    fn error_response(&self) -> actix_web::HttpResponse<BoxBody> {
+        let content = AskamaWrapper(match self {
             Self::NoCookie => NeedLogin {
                 description: Cow::Borrowed("It seems like the cookie with Discord-Auth information doesn't exist? Did the cookie monster eat it?!?"),
             },
@@ -347,72 +356,136 @@ impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for AuthErr {
             Self::NoDiscord => NeedLogin {
                 description: Cow::Borrowed("Failed to get some information regarding Discord-OAuth.")
             },
+            Self::NoSecretKey => NeedLogin {
+                description: Cow::Borrowed("Failed to get the Secret-Key information for Private Cookies.")
+            },
+            Self::NoCookieSet => NeedLogin {
+                description: Cow:: Borrowed("Could not get Cookie, even though we just created one. WHO IS EATING MY COOKIES?!?")
+            },
+            Self::CookieHeaderInvalidValue(_) => NeedLogin {
+                description: Cow:: Borrowed("There was an error converting the Cookie to a Set-Header value. Likely the resulting HTTP-Header was invalid."),
+            },
             Self::RefreshError(_) => NeedLogin {
                 description: Cow::Borrowed("Failed to refresh the expired Discord-Auth information.")
             },
             Self::SerialisationError(_) => NeedLogin {
                 description: Cow::Borrowed("Failed to serialize the new Discord-Auth information.")
             },
-        })).respond_to(request)
+        }).render();
+        actix_web::HttpResponse::InternalServerError()
+            .insert_header((actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("text/html")))
+            .body(content.map_or_else(core::convert::identity, core::convert::identity))
     }
 }
 
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for JWT {
-    type Error = AuthErr;
+#[derive(askama::Template)]
+#[template(path = "api/auth/discord/need-login.html")]
+struct NeedLogin{
+    description: Cow<'static, str>,
+}
 
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        if false {
-            return Outcome::Success(JWT::V1(TokenMeta{
-                token: Token {
-                    access_token: "".to_string(),
-                    token_type: "".to_string(),
-                    expires_in: 7*24*60*60,
-                    refresh_token: "".to_string(),
-                    scope: "".to_string(),
-                },
-                created_at: 1770750494,
-                expires_at: 1770750494+(7*24*60*60),
-                user_id: 790211774900862997,
-                username: "c0d3_m4523r".to_string(),
-                discriminator: None,
-                display_name: Some("C0D3 M4513R".to_string()),
-                user_avatar_image_hash: Some(serenity::model::prelude::ImageHash::from_str("65c84bf39bfc0af7ae0b30f635a2247f").unwrap()),
-            }));
-        }
+impl actix_web::Responder for AuthErr {
+    type Body = String;
 
+    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
+        (AskamaWrapper(match self {
+            Self::NoCookie => NeedLogin {
+                description: Cow::Borrowed("It seems like the cookie with Discord-Auth information doesn't exist? Did the cookie monster eat it?!?"),
+            },
+            Self::DeserialisationError(_) => NeedLogin {
+                description: Cow::Borrowed("The Discord-Auth information seems malformed.")
+            },
+            Self::ValidationError(_) => NeedLogin {
+                description: Cow::Borrowed("Failed to check the Discord-Auth information's Validity. Is the Clock of the Server on-time?")
+            },
+            Self::NoDiscord => NeedLogin {
+                description: Cow::Borrowed("Failed to get some information regarding Discord-OAuth.")
+            },
+            Self::NoSecretKey => NeedLogin {
+                description: Cow::Borrowed("Failed to get the Secret-Key information for Private Cookies.")
+            },
+            Self::NoCookieSet => NeedLogin {
+                description: Cow:: Borrowed("Could not get Cookie, even though we just created one. WHO IS EATING MY COOKIES?!?")
+            },
+            Self::CookieHeaderInvalidValue(_) => NeedLogin {
+                description: Cow:: Borrowed("There was an error converting the Cookie to a Set-Header value. Likely the resulting HTTP-Header was invalid."),
+            },
+            Self::RefreshError(_) => NeedLogin {
+                description: Cow::Borrowed("Failed to refresh the expired Discord-Auth information.")
+            },
+            Self::SerialisationError(_) => NeedLogin {
+                description: Cow::Borrowed("Failed to serialize the new Discord-Auth information.")
+            },
+        }), actix_web::http::StatusCode::UNAUTHORIZED).respond_to(req)
+    }
+}
 
-        let cookie = match request.cookies().get_private(DISCORD_TOKEN_COOKIE_NAME) {
+pub async fn my_middleware(
+    req: actix_web::dev::ServiceRequest,
+    next: actix_web::middleware::Next<impl actix_web::body::MessageBody>,
+) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, actix_web::Error> {
+    let cookie = match req.cookies().get(DISCORD_TOKEN_COOKIE_NAME) {
+        Some(v) => v,
+        None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookie, req),
+    };
+    let mut jwt = match serde_json::from_str::<JWTInternal>(cookie.value_trimmed()) {
+        Ok(v) => v,
+        Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::DeserialisationError(err.into()), req),
+    };
+    let cookie = if !match jwt.is_valid() {
+        Ok(v) => v,
+        Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::ValidationError(err), req),
+    } {
+        let discord = match req.app_data::<Discord>() {
             Some(v) => v,
-            None => return Outcome::Error((rocket::http::Status::Unauthorized, AuthErr::NoCookie)),
-        };
-        let mut jwt = match rocket::serde::json::from_str::<JWT>(cookie.value_trimmed()) {
-            Ok(v) => v,
-            Err(err) => return Outcome::Error((rocket::http::Status::Unauthorized, AuthErr::DeserialisationError(err.into())))
-        };
-        match jwt.is_valid() {
-            Ok(false) => {},
-            Ok(true) => return Outcome::Success(jwt),
-            Err(err) => return Outcome::Error((rocket::http::Status::InternalServerError, AuthErr::ValidationError(err)))
-        }
-
-        let discord = match request.rocket().state::<Discord>() {
-            Some(v) => v,
-            None => return Outcome::Error((rocket::http::Status::InternalServerError, AuthErr::NoDiscord)),
+            None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoDiscord, req),
         };
         match jwt.refresh(discord).await {
             Ok(()) => {},
-            Err(err) => return Outcome::Error((rocket::http::Status::Unauthorized, AuthErr::RefreshError(err))),
+            Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::RefreshError(err), req),
         }
-        let jwt_str = match rocket::serde::json::to_string(&jwt) {
+        let jwt_str = match serde_json::to_string(&jwt) {
             Ok(v) => v,
-            Err(err) => return Outcome::Error((rocket::http::Status::Unauthorized, AuthErr::SerialisationError(err.into()))),
+            Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::SerialisationError(err.into()), req),
         };
-        let mut cookie = rocket::http::Cookie::new(DISCORD_TOKEN_COOKIE_NAME, jwt_str);
-        cookie.set_secure(true);
-        request.cookies().add_private(cookie);
 
+        let mut jar = actix_web::cookie::CookieJar::new();
+        {
+            let key = match req.app_data(){
+                Some(v) => v,
+                None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoSecretKey, req),
+            };
+            let mut jar = jar.private_mut(key);
+            let mut cookie = actix_web::cookie::Cookie::new(DISCORD_TOKEN_COOKIE_NAME, jwt_str);
+            cookie.set_secure(true);
+            jar.add(cookie)
+        }
+        let cookie = match jar.get(DISCORD_TOKEN_COOKIE_NAME) {
+            Some(cookie) => cookie,
+            None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookieSet, req),
+        };
+        let cookie = match actix_web::http::header::HeaderValue::from_str(cookie.to_string()) {
+            Ok(v) => v,
+            Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::CookieHeaderInvalidValue(err), req),
+        };
 
-        Outcome::Success(jwt)
+        req.extensions_mut().insert(JWT{
+            jwt,
+        });
+        Some(cookie)
+    } else {
+        req.extensions_mut().insert(JWT{
+            jwt,
+        });
+        None
+    };
+
+    let resp = next.call(req).await?;
+
+    // post-processing
+    if let Some(cookie) = cookie {
+        resp.response().headers_mut().append(actix_web::http::header::SET_COOKIE, cookie);
     }
+
+    Ok(resp)
 }

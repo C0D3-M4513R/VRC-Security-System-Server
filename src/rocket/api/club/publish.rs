@@ -4,10 +4,10 @@ use base64::Engine;
 use tokio::sync::Mutex;
 use crate::git::push::add_files_top;
 use crate::modals::err::Err;
-use crate::rocket::api::club::code_replacements::Response;
 use crate::rocket::api::club::{Permissions, CLUB_OWNERS};
-use crate::rocket::AskamaWrapper;
+use crate::rocket::{AskamaWrapper, State};
 use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::Response;
 
 #[derive(Debug, serde_derive::Serialize)]
 pub struct ClubInfo<'a>{
@@ -20,20 +20,16 @@ pub struct ClubOwner{
     club_owners: Vec<Vec<String>>,
 }
 
-#[rocket::post("/api/club/<club>/publish")]
-pub async fn post_publish(
-    auth: Result<JWT, AuthErr>,
-    repo: &::rocket::State<Arc<Mutex<git2::Repository>>>,
-    mk: &::rocket::State<crate::Keypair>,
+#[actix_web::post("/api/club/<club>/publish")]
+pub async fn post_publish<'r>(
+    auth: State<'r, JWT>,
+    repo: &::actix_web::web::Data<Arc<Mutex<git2::Repository>>>,
+    mk: &::actix_web::web::Data<crate::Keypair>,
     club: String,
-) -> Response {
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
+) -> Response<()> {
     match Permissions::require_permission(&auth, &club, |v|v.submit).await {
         Ok(()) => {}
-        Err(err) => return Response::Error(err),
+        Err((code, err)) => return Response::Error(Some(code), err),
     }
 
     let db = crate::get_db().await;
@@ -62,10 +58,10 @@ GROUP BY public.club_vrc_permission.permission_level
             }
             permissions
         },
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error(None, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to get vrchat permission data of the Club"),
             error_description: None,
-        }))),
+        })),
     };
 
 
@@ -73,7 +69,7 @@ GROUP BY public.club_vrc_permission.permission_level
         let data = ClubOwner{
             club_owners: permissions,
         };
-        (rocket::serde::json::to_string(&data), None)
+        (serde_json::to_string(&data), None)
     } else {
         let res = match sqlx::query!(r#"
     WITH club_allowed_replace_name AS (
@@ -108,21 +104,21 @@ GROUP BY public.club_vrc_permission.permission_level
             .await
         {
             Ok(Some(v)) => v,
-            Ok(None) => return Response::Error((rocket::http::Status::Forbidden, AskamaWrapper(Err{
+            Ok(None) => return Response::Error(Some(actix_web::http::StatusCode::FORBIDDEN), AskamaWrapper(Err{
                 error: Cow::Borrowed("Not Authorized or Club does not exist"),
                 error_description: None,
-            }))),
-            Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+            })),
+            Err(_) => return Response::Error(Some(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR), AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed to get data of the Club"),
                 error_description: None,
-            }))),
+            })),
         };
         let data = ClubInfo{
             name: &res.path_name,
             clubnames_allowed_to_replace: res.allowed_replace.as_ref().map_or(&[], |v|v.as_slice()),
             permissions,
         };
-        (rocket::serde::json::to_string(&data), Some(res))
+        (serde_json::to_string(&data), Some(res))
     };
 
     let target_branch_name = format!("autopr/club/{club}");
@@ -136,7 +132,7 @@ GROUP BY public.club_vrc_permission.permission_level
         },
         Err(e) => {
             tracing::warn!("Failed to serialize Club Security-List: {club} {e}");
-            return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Could not serialize data")));
+            return Response::Err(None, Cow::Borrowed("Could not serialize data"));
         }
     };
 
@@ -154,28 +150,28 @@ GROUP BY public.club_vrc_permission.permission_level
             .await
         {
             Ok(Some(v)) => v,
-            Ok(None) => return Response::Err((rocket::http::Status::NotFound, Cow::Borrowed(""))),
+            Ok(None) => return Response::Err(Some(actix_web::http::StatusCode::NOT_FOUND), Cow::Borrowed("")),
             Err(err) => {
                 tracing::info!("Error querying db for private and public-key: {err}");
-                return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Error querying database")));
+                return Response::Err(None, Cow::Borrowed("Error querying database"));
             },
         };
 
         let pk = res.public_key.as_slice().as_chunks();
         let sk = res.private_key.as_slice().as_chunks();
         if pk.1.len() > 0 {
-            return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Invalid Saved Public-Key")));
+            return Response::Err(None, Cow::Borrowed("Invalid Saved Public-Key"));
         }
         if sk.1.len() > 0 {
-            return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Invalid Saved Secret-Key")));
+            return Response::Err(None, Cow::Borrowed("Invalid Saved Secret-Key"));
         }
         let pk = pk.0;
         let sk = sk.0;
         if pk.len() != 1 {
-            return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Invalid Saved Public-Key")));
+            return Response::Err(None, Cow::Borrowed("Invalid Saved Public-Key"));
         }
         if sk.len() != 1 {
-            return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Invalid Saved Secret-Key")));
+            return Response::Err(None, Cow::Borrowed("Invalid Saved Secret-Key"));
         }
         let pk = pk[0];
         let sk = sk[0];
@@ -190,12 +186,12 @@ GROUP BY public.club_vrc_permission.permission_level
             Ok(v) => v,
             Err(e) => {
                 tracing::warn!("Failed to sign key: {club} {data:?} {e}");
-                return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Failed to sign key")));
+                return Response::Err(None, Cow::Borrowed("Failed to sign key"));
             }
         };
         let ret = sphincsplus::crypto_sign_verify(&kp_sig, &kp.public, &mk.public);
         if ret != 0 {
-            return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Failed to verify signed key?")));
+            return Response::Err(None, Cow::Borrowed("Failed to verify signed key?"));
         }
         bytes.push_str(&base64::engine::general_purpose::STANDARD.encode(&kp_sig));
         bytes.push('\n');
@@ -203,7 +199,7 @@ GROUP BY public.club_vrc_permission.permission_level
             Ok(v) => v,
             Err(e) => {
                 tracing::warn!("Failed to sign data: {club} {data:?} {e}");
-                return Response::Err((rocket::http::Status::InternalServerError, Cow::Borrowed("Failed to sign data")));
+                return Response::Err(None, Cow::Borrowed("Failed to sign data"));
             }
         };
         bytes.push_str(&base64::engine::general_purpose::STANDARD.encode(&data_sig));
@@ -213,7 +209,7 @@ GROUP BY public.club_vrc_permission.permission_level
     let bytes = bytes;
 
     let repo = repo.inner().clone().lock_owned().await;
-    let redir = rocket::response::Redirect::to(format!("/clubs/{club}"));
+    let redir = format!("/clubs/{club}");
     match tokio::task::spawn_blocking(move || {
         if let Some(res) = res {
             crate::git::push::push_files(
@@ -248,9 +244,9 @@ GROUP BY public.club_vrc_permission.permission_level
         }
     }).await {
         Ok(Ok(())) => {},
-        Ok(Err(err)) => return Response::Err((rocket::http::Status::InternalServerError, err)),
-        Err(err) => return Response::Err((rocket::http::Status::InternalServerError, Cow::Owned(format!("Error Updating Repo: {err}")))),
+        Ok(Err(err)) => return Response::Err(None, err),
+        Err(err) => return Response::Err(None, Cow::Owned(format!("Error Updating Repo: {err}"))),
     }
 
-    Response::Ok(redir)
+    Response::Redirect(None, redir.into())
 }

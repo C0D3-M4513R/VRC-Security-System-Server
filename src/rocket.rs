@@ -1,28 +1,28 @@
 use std::borrow::Cow;
 use base64::Engine;
-use rocket::{Request, Responder};
-use rocket::request::Outcome;
+use crate::Keypair;
 use crate::rocket::auth::discord::AuthErr;
 
 pub mod api;
 pub mod auth;
 pub mod club;
 
-#[rocket::get("/")]
-pub fn get_index() -> rocket::response::Redirect {
-    rocket::response::Redirect::to("/clubs")
+#[actix_web::get("/")]
+pub fn get_index() -> Response<()> {
+    Response::Redirect(None, "/clubs".into())
 }
-#[rocket::get("/favicon.ico")]
-pub fn get_favicon() -> (rocket::http::ContentType, &'static[u8]) {
-    (rocket::http::ContentType::Icon, include_bytes!("../favicon.ico"))
+#[actix_web::get("/favicon.ico")]
+pub fn get_favicon() -> actix_web::HttpResponse {
+    actix_web::HttpResponse::Ok()
+        .insert_header((actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("image/x-icon")))
+        .body(include_bytes!("../favicon.ico"))
 }
 
 pub struct AskamaWrapper<T>(pub T);
-impl<'r, 'o:'r, T: askama::Template + 'r> ::rocket::response::Responder<'r, 'o> for AskamaWrapper<T> {
-    fn respond_to(self, request: &'r Request<'_>) -> rocket::response::Result<'o> {
-        match self.0.render() {
-            Ok(v) => (rocket::http::ContentType::HTML,v).respond_to(request),
-            Err(err) => (rocket::http::ContentType::HTML,format!(r#"
+impl<T: askama::Template> AskamaWrapper<T> {
+    pub fn render(self) -> Result<String, String> {
+        self.0.render().map_err(|err| {
+            format!(r#"
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -34,50 +34,62 @@ impl<'r, 'o:'r, T: askama::Template + 'r> ::rocket::response::Responder<'r, 'o> 
         <h1>Error Getting OAuth Token</h1>
         <p>Error: <code>{err}</code></p>
     </body>
-"#)).respond_to(request),
-        }
+"#)
+        })
+    }
+}
+impl<T: askama::Template> ::actix_web::Responder for AskamaWrapper<T> {
+    type Body = String;
+    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
+        let mut v = match self.render() {
+            Ok(v) => {
+                v.respond_to(req)
+            },
+            Err(err) => {
+                actix_web::HttpResponse::with_body(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, err)
+            }
+        };
+        v.headers_mut().insert(actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("text/html"));
+        v
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ETag<'a> {
-    pub status: rocket::http::Status,
+    pub status: actix_web::http::StatusCode,
     pub data: Option<Cow<'a, [u8]>>,
     pub sha3_512: Cow<'a, [u8]>,
-    pub header: rocket::http::HeaderMap<'a>
+    pub header: actix_web::http::header::HeaderMap
 }
-#[rocket::async_trait]
-impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for &'o ETag<'o> {
-    fn respond_to(self, _: &'r Request<'_>) -> rocket::response::Result<'o> {
-        let mut response = rocket::response::Response::new();
+impl actix_web::Responder for ETag<'static> {
+    type Body = actix_web::body::EitherBody<Cow<'static, [u8]>, ()>;
+
+    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
+        (&self).respond_to(req)
+    }
+}
+impl actix_web::Responder for &'_ ETag<'static> {
+    type Body = actix_web::body::EitherBody<Cow<'static, [u8]>, ()>;
+
+    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
+        let mut response = actix_web::HttpResponse::with_body(self.status, self.data.map_or(actix_web::body::EitherBody::right(()), actix_web::body::EitherBody::left));
         let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
-        for header in self.header.iter() {
-            response.adjoin_header(header);
+        for (name, value) in self.header.iter() {
+            response.append(name, value);
         }
         response.set_status(self.status);
-        response.adjoin_header(rocket::http::Header::new("ETag", format!("sha3_512-{header_base64}")));
+        let etag = format!("sha3_512-{header_base64}");
+        use actix_web::http::header::TryIntoHeaderValue;
+        match actix_web::http::header::ETag(actix_web::http::header::EntityTag::new(false, etag)).try_into_value() {
+            Ok(v) => response.headers_mut().append(<actix_web::http::header::ETag as actix_web::http::header::Header>::name(), v),
+            Err(err) => {
+                tracing::warn!("Tried to set an etag, but it wasn't valid? Since when is `sha3_512-{{some_base_64}}` not a valid header value?:: {err}");
+            }
+        }
         if let Some(data) = self.data.as_ref() {
             response.set_sized_body(data.len(), std::io::Cursor::new(data));
         } else {
-            response.set_status(rocket::http::Status::NotModified);
-        }
-        Ok(response)
-    }
-}
-#[rocket::async_trait]
-impl<'r, 'o:'r> rocket::response::Responder<'r, 'o> for ETag<'o> {
-    fn respond_to(self, _: &'r Request<'_>) -> rocket::response::Result<'o> {
-        let mut response = rocket::response::Response::new();
-        let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
-        for header in self.header.into_iter() {
-            response.adjoin_header(header);
-        }
-        response.set_status(self.status);
-        response.adjoin_header(rocket::http::Header::new("ETag", format!("sha3_512-{header_base64}")));
-        if let Some(data) = self.data {
-            response.set_sized_body(data.len(), std::io::Cursor::new(data));
-        } else {
-            response.set_status(rocket::http::Status::NotModified);
+            response.set_status(actix_web::http::StatusCode::NOT_MODIFIED);
         }
         Ok(response)
     }
@@ -116,11 +128,68 @@ impl<'r> rocket::request::FromRequest<'r> for IfNoneMatch {
         Outcome::Success(IfNoneMatch(vec))
     }
 }
-
-#[derive(Responder)]
 pub enum Response<T> {
     Ok(T),
     AuthErr(AuthErr),
-    Redirect(rocket::response::Redirect),
-    Error((rocket::http::Status, AskamaWrapper<crate::modals::err::Err<'static>>)),
+    Redirect(Option<actix_web::http::StatusCode>, Cow<'static, str>),
+    Err(Option<actix_web::http::StatusCode>, Cow<'static, str>),
+    Error(Option<actix_web::http::StatusCode>, AskamaWrapper<crate::modals::err::Err<'static>>),
+}
+
+impl<T:actix_web::Responder> actix_web::Responder for Response<T> {
+    type Body = actix_web::body::EitherBody<actix_web::body::EitherBody<(), String>, T::Body>;
+
+    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
+        match self {
+            Self::Ok(v) => {
+                v.respond_to(req).into()
+            }
+            Self::AuthErr(err) => {
+                err.respond_to(req).into()
+            }
+            Self::Redirect(code, location) => {
+                let mut resp = actix_web::HttpResponse::with_body(code.unwrap_or(actix_web::http::StatusCode::TEMPORARY_REDIRECT), ().into());
+                resp.headers_mut().append(actix_web::http::header::LOCATION, location.into());
+                resp
+            }
+            Self::Err(code, err) => {
+                (err, code.unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).respond_to(req).into()
+            }
+            Self::Error(code, wrapper) => {
+                (wrapper, code.unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).respond_to(req).into()
+            }
+        }
+    }
+}
+
+pub struct State<'a, T: ?Sized>(pub &'a T);
+impl<'a, T: ?Sized> core::ops::Deref for State<'a, T> {
+    type Target = &'a T;
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+impl<'a, T: ?Sized> actix_web::FromRequest for State<'a, T> {
+    type Error = actix_web::Error;
+    type Future = std::future::Ready<Result<Self, actix_web::Error>>;
+
+    #[inline]
+    fn from_request(req: &actix_web::HttpRequest, _: &mut actix_web::dev::Payload) -> Self::Future {
+        if let Some(st) = req.app_data::<T>() {
+            std::future::ready(Ok(Self(st)))
+        } else {
+            tracing::debug!(
+                "Failed to extract `{}` for `{}` handler. For the Data extractor to work \
+                correctly pass the data to `App::app_data()`. \
+                Ensure that types align in both the set and retrieve calls.",
+                core::any::type_name::<Keypair>(),
+                req.match_name().unwrap_or_else(|| req.path())
+            );
+
+            std::future::ready(Err(actix_web::error::ErrorInternalServerError(
+                "Requested application data is not configured correctly. \
+                View/enable debug logs for more details.",
+            )))
+        }
+    }
 }

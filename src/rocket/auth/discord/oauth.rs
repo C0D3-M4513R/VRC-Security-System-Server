@@ -1,47 +1,52 @@
 use std::borrow::Cow;
-use crate::rocket::AskamaWrapper;
+use crate::rocket::{AskamaWrapper, State};
 use crate::modals::err::Err;
 use crate::rocket::Response;
 
-#[rocket::get("/api/auth/discord/oauth?<code>&<state>", rank=0)]
-pub async fn oauth_ok(discord: &rocket::State<super::Discord>, cookie_jar: &rocket::http::CookieJar<'_>, code: &str, state: &str) -> Response<rocket::response::content::RawHtml<&'static str>> {
+#[actix_web::get("/api/auth/discord/oauth?{code}&{state}")]
+pub async fn oauth_ok<'a>(discord: State<'a, super::Discord>, key: State<'a, actix_web::cookie::Key>, req: &actix_web::HttpRequest, code: &str, state: &str) -> Response<actix_web::HttpResponse<&'static str>> {
     let _ = state; //Yes rust, I don't use this field. I know. Now stop complaining.
     let jwt = match super::JWT::new(discord, code).await {
         Ok(v) => v,
         Err(err) => {
             tracing::warn!("Could not get Discord Auth: {err}");
-            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+            return Response::Error(None, AskamaWrapper(Err{
                 error: Cow::Borrowed("Could not get Discord Auth"),
                 error_description: None,
-            })));
+            }));
         }
     };
 
-    let jwt_string = match rocket::serde::json::to_string(&jwt) {
+    let jwt_string = match serde_json::to_string(&jwt) {
         Ok(v) => v,
         Err(err) => {
             tracing::warn!("Failed serializing jwt: {err}");
-            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+            return Response::Error(None, AskamaWrapper(Err{
                 error: Cow::Borrowed("Failed serializing jwt"),
                 error_description: None,
-            })));
+            }));
         }
     };
-    let mut cookie = rocket::http::Cookie::new(super::DISCORD_TOKEN_COOKIE_NAME, jwt_string);
-    cookie.set_secure(true);
-    cookie_jar.add_private(cookie);
-    Response::Ok(rocket::response::content::RawHtml(r##"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta http-equiv="refresh" content="0; url=/" />
-    <meta name="color-scheme" content="light dark">
-    <title>Discord Auth Success</title>
-</head>
-<body>
-    <h1>Successfully Authenticated via Discord</h1>
-    <p>If you see this, then you are likely using an old Browser. </p><a href="/">Please click here to be Redirected.</a></p>
-</body>
-</html>
-    "##))
+    let mut jar = actix_web::cookie::CookieJar::new();
+    {
+        let mut private_jar = jar.private_mut(&*key);
+        let mut cookie = actix_web::cookie::Cookie::new(super::DISCORD_TOKEN_COOKIE_NAME, jwt_string);
+        cookie.set_secure(true);
+        private_jar.add(cookie);
+    }
+    let mut response = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::OK, include_str!("../../../../templates/api/auth/discord/auth-success.html"));
+    response.headers_mut().insert(actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("text/html"));
+    for i in jar.delta() {
+        match response.add_cookie(i) {
+            Ok(()) => {},
+            Err(err) => {
+                return Response::Error(None, AskamaWrapper(Err{
+                    error: Cow::Borrowed("Failed to add set-cookie header"),
+                    error_description: Some(err.to_string().into()),
+                }));
+            }
+        }
+    }
+
+    Response::Ok(response)
 }

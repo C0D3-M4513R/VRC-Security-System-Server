@@ -3,14 +3,14 @@ use crate::rocket::api::club::Permissions;
 use crate::rocket::auth::discord::{AuthErr, JWT};
 use crate::rocket::{AskamaWrapper, Response};
 
-#[derive(rocket::FromForm)]
+#[derive(serde_derive::Deserialize)]
 pub struct DiscordInfo<'r> {
     discord_id: u64,
     username: &'r str,
     discriminator: Option<i16>,
 }
-#[rocket::put("/api/discord/info", data = "<data>")]
-pub async fn put_discord_info<'r>(auth: Result<JWT, AuthErr>, data: rocket::form::Form<DiscordInfo<'r>>) -> Response<rocket::response::Redirect> {
+#[actix_web::put("/api/discord/info")]
+pub async fn put_discord_info<'r>(auth: State<'r, JWT>, data: actix_web::web::Form<DiscordInfo<'r>>) -> Response<()> {
     let auth = match auth {
         Ok(jwt) => jwt,
         Err(err) => return Response::AuthErr(err),
@@ -18,7 +18,7 @@ pub async fn put_discord_info<'r>(auth: Result<JWT, AuthErr>, data: rocket::form
 
     match Permissions::require_permission(&auth, crate::rocket::api::club::CLUB_OWNERS, |v|v.manage_permissions == Some(0)).await {
         Ok(()) => {}
-        Err(err) => return Response::Error(err),
+        Err((code, err)) => return Response::Error(Some(code), err),
     }
 
     let db = crate::get_db().await;
@@ -32,13 +32,13 @@ pub async fn put_discord_info<'r>(auth: Result<JWT, AuthErr>, data: rocket::form
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to discord_create: {err}");
-            return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(crate::modals::err::Err {
+            return Response::Error(None, AskamaWrapper(crate::modals::err::Err {
                 error: Cow::Borrowed("Failed to discord_create in DB"),
                 error_description: Some(err.to_string().into()),
-            })))
+            }))
         }
     };
-    let redir = Response::Ok(rocket::response::Redirect::to(rocket::uri!("/clubs/")));
+    let redir = Response::Redirect(None, "/clubs/".into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

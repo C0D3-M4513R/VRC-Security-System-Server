@@ -1,25 +1,21 @@
 use std::borrow::Cow;
-use crate::rocket::api::club::code_replacements::Response;
+use crate::rocket::{Response, State};
 use crate::rocket::api::club::Permissions;
 use crate::rocket::AskamaWrapper;
 use crate::rocket::auth::discord::{AuthErr, JWT};
 use crate::modals::err::Err;
 
-#[rocket::put("/api/club/<club>/manage_permissions/<target_id>", data="<data>")]
-pub async fn put_club_permission<'r>(auth: Result<JWT, AuthErr>, club: &'r str, target_id: u64, data: rocket::form::Form<Permissions>) -> Response {
+#[actix_web::put("/api/club/<club>/manage_permissions/<target_id>")]
+pub async fn put_club_permission<'r>(auth: State<'r, JWT>, club: &'r str, target_id: u64, data: actix_web::web::Form<Permissions>) -> Response<()> {
     process_club_permission(auth, club, target_id, Some(data.into_inner())).await
 }
-async fn process_club_permission(auth: Result<JWT, AuthErr>, club: &str, target_id: u64, data: Option<Permissions>) -> Response {
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
+async fn process_club_permission<'r>(auth: State<'r, JWT>, club: &str, target_id: u64, data: Option<Permissions>) -> Response<()> {
     let perms = match Permissions::get_from_db(target_id, club).await {
         Ok(perms) => perms,
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error(None, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to get Permissions of target discord id"),
             error_description: None,
-        }))),
+        })),
     };
     match Permissions::require_permission(&auth, club, |v| match perms.map(|v|v.manage_permissions).flatten() {
         None => v.manage_permissions.is_some(),
@@ -29,7 +25,7 @@ async fn process_club_permission(auth: Result<JWT, AuthErr>, club: &str, target_
         },
     }).await {
         Ok(()) => {}
-        Err(err) => return Response::Error(err),
+        Err((code, err)) => return Response::Error(Some(code), err),
     }
 
     let db = crate::get_db().await;
@@ -58,14 +54,14 @@ async fn process_club_permission(auth: Result<JWT, AuthErr>, club: &str, target_
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to manage_permissions: {err}");
-            return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(crate::modals::err::Err {
+            return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(crate::modals::err::Err {
                 error: Cow::Borrowed("Failed to manage_permissions in DB. Has that user logged in before?"),
                 error_description: Some(err.to_string().into()),
-            })))
+            }))
         }
     };
 
-    let redir = Response::Ok(rocket::response::Redirect::to(format!("/clubs/{club}/discord_permissions")));
+    let redir = Response::Redirect(format!("/clubs/{club}/discord_permissions").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
@@ -77,26 +73,22 @@ async fn process_club_permission(auth: Result<JWT, AuthErr>, club: &str, target_
 
     redir
 }
-#[derive(rocket::FromForm, Debug)]
+#[derive(serde_derive::Deserialize, Debug)]
 pub struct NewPermission {
     target_id: u64,
 }
-#[rocket::put("/api/club/<club>/manage_permissions", data="<data>")]
-pub async fn new_club_permission<'r>(auth: Result<JWT, AuthErr>, club: &'r str, data: rocket::form::Form<NewPermission>) -> Response {
+#[actix_web::put("/api/club/<club>/manage_permissions")]
+pub async fn new_club_permission<'r>(auth: State<'r, JWT>, club: &'r str, data: actix_web::web::Form<NewPermission>) -> Response<()> {
     process_club_permission(auth, club, data.target_id, None).await
 }
-#[rocket::delete("/api/club/<club>/manage_permissions/<target_id>")]
-pub async fn delete_club_permission<'r>(auth: Result<JWT, AuthErr>, club: &'r str, target_id: u64) -> Response {
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
+#[actix_web::delete("/api/club/<club>/manage_permissions/<target_id>")]
+pub async fn delete_club_permission<'r>(auth: State<'r, JWT>, club: &'r str, target_id: u64) -> Response<()> {
     let perms = match Permissions::get_from_db(target_id, club).await {
         Ok(perms) => perms,
-        Err(_) => return Response::Error((rocket::http::Status::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error(None, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to get Permissions of target discord id"),
             error_description: None,
-        }))),
+        })),
     };
     match Permissions::require_permission(&auth, club, |v| match perms.map(|v|v.manage_permissions).flatten() {
         None => v.manage_permissions.is_some(),
@@ -106,7 +98,7 @@ pub async fn delete_club_permission<'r>(auth: Result<JWT, AuthErr>, club: &'r st
         },
     }).await {
         Ok(()) => {}
-        Err(err) => return Response::Error(err),
+        Err((code, err)) => return Response::Error(Some(code), err),
     }
     let db = crate::get_db().await;
     let table = match sqlx::query!(
@@ -121,14 +113,14 @@ pub async fn delete_club_permission<'r>(auth: Result<JWT, AuthErr>, club: &'r st
         Ok(v) => v,
         Err(err) => {
             tracing::error!("Failed to delete_permissions: {err}");
-            return Response::Error((rocket::http::Status::BadRequest, AskamaWrapper(crate::modals::err::Err {
+            return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(crate::modals::err::Err {
                 error: Cow::Borrowed("Failed to delete_permissions in DB"),
                 error_description: Some(err.to_string().into()),
-            })))
+            }))
         }
     };
 
-    let redir = Response::Ok(rocket::response::Redirect::to(format!("/clubs/{club}/discord_permissions")));
+    let redir = Response::Ok(format!("/clubs/{club}/discord_permissions").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
