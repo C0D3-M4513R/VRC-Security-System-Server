@@ -17,7 +17,7 @@
 <p>To change a permission-level of a person, just add them in the new permission-level and remove them from the old one.</p>
 
 {% if let Some(add_level) = information.permissions.add_level %}
-<form method="post" action="/api/club/{{information.path_name}}/vrcuser_level">
+<form method="post" action="../../api/club/{{information.path_name}}/vrcuser_level/add">
     <input type="hidden" name="_method" value="PUT">
     <label>VRC Name:<input type="text" name="vrc_name" required></label>
     <label>Permission Level:<input type="number" name="permission_level" min="{{add_level}}" max="{{information.limits.max_permission_level}}" value="{{add_level}}" required></label>
@@ -40,8 +40,9 @@
             <td class="action-vrchat-permission_level"><p>{{permission.permission_level}}</p></td>
             <td class="action-permission-delete">
                 {% if let Some(remove_level) = information.permissions.remove_level && *remove_level <= permission.permission_level %}
-                <form method="post" action="/api/club/{{information.path_name}}/vrcuser_level/{{permission.vrc_name}}/{{remove_level}}">
-                    <input type="hidden" name="_method" value="DELETE">
+                <form method="post" action="../../api/club/{{information.path_name}}/vrcuser_level/remove">
+                    <input type="hidden" name="vrc_name" value="{{permission.vrc_name}}">
+                    <input type="hidden" name="permission_level" value="{{permission.permission_level}}">
                     <input type="submit" value="Delete Permission">
                 </form>
                 {% endif %}

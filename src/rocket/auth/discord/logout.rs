@@ -6,8 +6,11 @@ use crate::rocket::AskamaWrapper;
 pub async fn logout() -> actix_web::HttpResponse<actix_web::body::EitherBody<(), String>> {
     let mut cookie = actix_web::cookie::Cookie::new(super::DISCORD_TOKEN_COOKIE_NAME, "");
     cookie.set_secure(true);
+    cookie.set_http_only(true);
+    cookie.set_same_site(actix_web::cookie::SameSite::Strict);
+    cookie.set_path("/");
     cookie.make_removal();
-    let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::TEMPORARY_REDIRECT, actix_web::body::EitherBody::left(()));
+    let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::SEE_OTHER, actix_web::body::EitherBody::left(()));
     match resp.add_removal_cookie(&cookie) {
         Ok(()) => {},
         Err(e) => {

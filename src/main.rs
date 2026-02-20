@@ -33,6 +33,8 @@ pub(crate) async fn get_db<'a>() -> sqlx::postgres::PgPool {
     }).await.clone()
 }
 
+static INITIALIZING:core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
 fn main() -> ::anyhow::Result<()> {
     if let Err(err) = dotenvy::dotenv() {
         eprintln!("Dotenv does not exist at path: '{}' ?", err);
@@ -117,7 +119,16 @@ fn main() -> ::anyhow::Result<()> {
 
 #[actix_web::main]
 async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()> {
-    let _ = get_db().await;
+    let db = get_db().await;
+    if sqlx::query!(r#"SELECT COUNT(*) as "count!" FROM club"#)
+        .fetch_one(&db)
+        .await
+        .map_err(|e|::anyhow::format_err!("Failed to get number of registered clubs: {e}"))?
+        .count == 0
+    {
+        INITIALIZING.store(true, core::sync::atomic::Ordering::Release);
+    }
+
     let discord = rocket::auth::discord::setup().await?;
     let key = {
         let secret_key = std::env::var("ROCKET_SECRET_KEY")
@@ -145,7 +156,18 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
     let repo = actix_web::web::Data::new(Mutex::new(repo));
     actix_web::HttpServer::new(move ||{
         let app = actix_web::App::new()
-            .wrap(actix_web::middleware::Logger::default());
+            .wrap(actix_web::middleware::Logger::default())
+            .wrap(actix_web::middleware::NormalizePath::new(actix_web::middleware::TrailingSlash::MergeOnly))
+            .app_data(repo.clone())
+            .app_data(mk)
+            .app_data(key.clone())
+            .app_data(discord.clone())
+            .app_data(limits.clone())
+            .app_data(
+                actix_multipart::form::MultipartFormConfig::default()
+                    .memory_limit(40*1024*1024)
+            );
+
 
         macro_rules! register_routes {
             ($ident:ident,$($expr:expr),*) => {
@@ -154,14 +176,13 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
         }
         register_routes!(app,
             rocket::auth::discord::new::new_oauth,
-            rocket::auth::discord::oauth::oauth_ok,
-            rocket::auth::discord::err::oauth_err,
+            rocket::auth::discord::oauth::oauth,
             rocket::auth::discord::logout::logout,
             rocket::get_favicon,
             rocket::get_index
         );
         let app = {
-            let scope = actix_web::web::scope("/auth")
+            let scope = actix_web::web::scope("auth")
                 .wrap(actix_web::middleware::from_fn(crate::rocket::auth::discord::my_middleware));
             register_routes!(scope,
                 rocket::api::club::code_replacements::put_club_replacement,
@@ -178,6 +199,7 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
                 rocket::api::club::new::put_club,
                 rocket::api::discord::put_discord_info,
 
+                rocket::club::get_index,
                 rocket::club::get_club,
                 rocket::club::instance::get_club_instance,
                 rocket::club::vrchat_permissions::get_club_vrc_names,
@@ -186,13 +208,10 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
             app.service(scope)
         };
 
-        let app = app.app_data(repo.clone());
-        let app = app.app_data(mk);
-        let app = app.app_data(key.clone());
-        let app = app.app_data(discord.clone());
-        let app = app.app_data(limits.clone());
         app
-    }).bind_uds("server.socket")
+    })
+        // .bind_uds("server.socket")
+        .bind(std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 8000))
         .expect("expected to be able to start a server")
         .run()
         .await

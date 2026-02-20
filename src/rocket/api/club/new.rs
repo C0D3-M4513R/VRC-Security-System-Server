@@ -8,7 +8,7 @@ use crate::rocket::auth::discord::JWT;
 pub struct Name {
     path_name: String,
 }
-#[actix_web::put("/api/club")]
+#[actix_web::post("/api/club")]
 pub async fn put_club<'r>(auth: State<JWT>, data: actix_web::web::Form<Name>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     match Permissions::require_permission(&auth, CLUB_OWNERS, |v|v.manage_permissions == Some(0)).await {
         Ok(()) => {}
@@ -43,7 +43,7 @@ pub async fn put_club<'r>(auth: State<JWT>, data: actix_web::web::Form<Name>) ->
             }))
         }
     };
-    let redir = Response::Redirect(None, format!("/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}/").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

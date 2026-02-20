@@ -7,9 +7,10 @@ use crate::rocket::api::club::build_permission_from_res;
 use crate::rocket::{AskamaWrapper, Response, State};
 use crate::rocket::auth::discord::JWT;
 
-#[actix_web::get("/clubs/<club>/discord_permissions")]
-pub async fn get_club_discord_permissions<'r>(auth: State<JWT>, limits: State<Limits>, club: String) -> Response<AskamaWrapper<ClubDiscordPermissions>> {
+#[actix_web::get("/clubs/{club}/discord_permissions")]
+pub async fn get_club_discord_permissions<'r>(auth: State<JWT>, limits: State<Limits>, path: actix_web::web::Path<String>) -> Response<AskamaWrapper<ClubDiscordPermissions>> {
     let db = crate::get_db().await;
+    let club = &*path;
     let res = match sqlx::query!(r#"
         SELECT
             public.club."path-name" as path_name,

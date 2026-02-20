@@ -3,15 +3,35 @@ pub mod vrchat_permissions;
 pub mod manage_permissions;
 
 use std::borrow::Cow;
+use crate::{Keypair, INITIALIZING};
 use crate::rocket::{AskamaWrapper, Response, State};
 use crate::rocket::auth::discord::JWT;
 use crate::rocket::api::club::build_permission_from_res;
 use crate::modals::err::Err;
 use crate::modals::clubs::{Club, Clubs};
-
+#[actix_web::get("/")]
+pub async fn get_index() -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    Response::Redirect(None, "clubs".into())
+}
 #[actix_web::get("/clubs")]
-pub async fn get_club<'r>(auth: State<JWT>) -> Response<AskamaWrapper<Clubs>> {
+pub async fn get_club<'r>(auth: State<JWT>, keypair: State<Keypair>) -> Response<AskamaWrapper<Clubs>> {
     let db = crate::get_db().await;
+    if INITIALIZING.swap(false, core::sync::atomic::Ordering::AcqRel) {
+        match sqlx::query!("SELECT add_initial_club($1, $2, $3)", auth.get_user_id().cast_signed(), &keypair.public, &keypair.secret)
+            .execute(&db)
+            .await
+        {
+            Ok(_) => {},
+            Err(err) => {
+                tracing::warn!("Failed to initialize DB with first club: {err}");
+                INITIALIZING.store(true, core::sync::atomic::Ordering::Release);
+                return Response::Error(None, AskamaWrapper(Err{
+                    error: Cow::Borrowed("Failed to initialize DB with first club"),
+                    error_description: None
+                }));
+            }
+        }
+    }
     let res = match sqlx::query!(r#"
         SELECT
             public.club."path-name" as path_name,

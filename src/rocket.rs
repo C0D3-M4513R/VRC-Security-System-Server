@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 use actix_web::dev::Payload;
-use actix_web::HttpRequest;
+use actix_web::{HttpMessage, HttpRequest};
 use base64::Engine;
-use crate::Keypair;
 
 pub mod api;
 pub mod auth;
@@ -10,7 +9,7 @@ pub mod club;
 
 #[actix_web::get("/")]
 pub async fn get_index() -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
-    Response::Redirect(None, "/clubs".into())
+    Response::Redirect(None, "/auth/".into())
 }
 #[actix_web::get("/favicon.ico")]
 pub async fn get_favicon() -> actix_web::HttpResponse<&'static [u8]> {
@@ -66,19 +65,15 @@ impl actix_web::Responder for ETag<'static> {
     type Body = actix_web::body::EitherBody<Cow<'static, [u8]>, ()>;
 
     fn respond_to(self, _: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
-        let mut response = actix_web::HttpResponse::with_body(
-            if self.data.is_none() {
-                actix_web::http::StatusCode::NOT_MODIFIED
-            } else {
-                self.status
-            },
-            self.data.map_or(actix_web::body::EitherBody::right(()), actix_web::body::EitherBody::left)
-        );
+        let mut response = if let Some(data) = self.data {
+            actix_web::HttpResponse::with_body(self.status, actix_web::body::EitherBody::left(data))
+        } else {
+            actix_web::HttpResponse::with_body(actix_web::http::StatusCode::NOT_MODIFIED, actix_web::body::EitherBody::right(()))
+        };
         let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
         for (name, value) in self.header.into_iter() {
             response.headers_mut().append(name, value);
         }
-        *response.status_mut() = self.status;
         let etag = format!("sha3_512-{header_base64}");
         use actix_web::http::header::TryIntoHeaderValue;
         match actix_web::http::header::ETag(actix_web::http::header::EntityTag::new(false, etag)).try_into_value() {
@@ -145,7 +140,7 @@ impl<T:actix_web::Responder> actix_web::Responder for Response<T> {
                 v.respond_to(req).map_into_right_body()
             }
             Self::Redirect(code, location) => {
-                let mut resp = actix_web::HttpResponse::with_body(code.unwrap_or(actix_web::http::StatusCode::TEMPORARY_REDIRECT), ());
+                let mut resp = actix_web::HttpResponse::with_body(code.unwrap_or(actix_web::http::StatusCode::SEE_OTHER), ());
                 match actix_web::http::header::HeaderValue::from_str(&location) {
                     Ok(v) => resp.headers_mut().append(actix_web::http::header::LOCATION, v),
                     Err(err) => {
@@ -182,12 +177,14 @@ impl<'a, T: Clone + 'static> actix_web::FromRequest for State<T> {
     fn from_request(req: &actix_web::HttpRequest, _: &mut actix_web::dev::Payload) -> Self::Future {
         if let Some(st) = req.app_data::<T>() {
             std::future::ready(Ok(Self(st.clone())))
+        } else if let Some(st) = req.extensions().get::<T>() {
+            std::future::ready(Ok(Self(st.clone())))
         } else {
             tracing::debug!(
                 "Failed to extract `{}` for `{}` handler. For the Data extractor to work \
                 correctly pass the data to `App::app_data()`. \
                 Ensure that types align in both the set and retrieve calls.",
-                core::any::type_name::<Keypair>(),
+                core::any::type_name::<T>(),
                 req.match_name().unwrap_or_else(|| req.path())
             );
 

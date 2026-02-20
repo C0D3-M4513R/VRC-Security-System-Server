@@ -17,7 +17,7 @@
 <p>Also adding a person to the permission-list will only succeed, if they have logged in to the website successfully before.</p>
 
 {% if information.permissions.add_discord_user %}
-<form method="post" action="/api/club/{{information.path_name}}/manage_permissions">
+<form method="post" action="../../api/club/{{information.path_name}}/manage_permissions">
     <input type="hidden" name="_method" value="PUT">
     <label>Discord Id:<input type="text" name="target_id" pattern="[0-9]+" required></label>
     <input type="submit" value="Add Permission">
@@ -38,7 +38,7 @@
         <td><p>{{permission.discord_id}}</p></td>
         <td><p>{{permission.discord_name}}{% if let Some(discriminator) = permission.discord_discriminator %}#{{discriminator}}{% endif %}</p></td>
         <td>
-            <form method="post" action="/api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}">
+            <form method="post" action="../../api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}/change">
                 <input type="hidden" name="_method" value="PUT">
                 <label>Allowed to Add Discord Users (of higher Manage Permission Level):<input type="checkbox" name="add_discord_user" {% if permission.permission.add_discord_user %}checked{% endif %} {% if !information.permissions.add_discord_user %}disabled{% endif %}></label><br>
                 <label>Allowed to Remove Discord Users (of higher Manage Permission Level):<input type="checkbox" name="remove_discord_user" {% if permission.permission.remove_discord_user %}checked{% endif %} {% if !information.permissions.remove_discord_user %}disabled{% endif %}></label><br><br>
@@ -107,7 +107,7 @@
                 <label>Allowed to Request Update:<input type="checkbox" name="submit" {% if permission.permission.submit %}checked{% endif %} {% if !information.permissions.submit %}disabled{% endif %}></label><br><br>
                 <input type="submit" value="Update Permissions">
             </form>
-            <form method="post" action="/api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}">
+            <form method="post" action="../../api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}/delete">
                 <input type="hidden" name="_method" value="DELETE">
                 <input type="submit" value="Remove User"
                     {% match (permission.permission.manage_permissions,information.permissions.manage_permissions) %}

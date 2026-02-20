@@ -5,15 +5,10 @@ use crate::rocket::AskamaWrapper;
 use crate::rocket::auth::discord::JWT;
 use crate::modals::err::Err;
 
-#[actix_web::put("/api/club/<club>/manage_permissions/<target_id>")]
-pub async fn put_club_permission<'r>(auth: State<JWT>, club: String, target_id: String, data: actix_web::web::Form<Permissions>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
-    let target_id = match u64::from_str_radix(&target_id, 10) {
-        Ok(v) => v,
-        Err(err) => return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err{
-            error: Cow::Borrowed("Failed to decode the parsed level as an unsigned integer"),
-            error_description: Some(err.to_string().into()),
-        }))
-    };
+#[actix_web::post("/api/club/{club}/manage_permissions/{target_id}/change")]
+pub async fn put_club_permission<'r>(auth: State<JWT>, path: actix_web::web::Path<(String, u64)>, data: actix_web::web::Form<Permissions>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let club = &path.0;
+    let target_id = path.1;
     process_club_permission(auth, &club, target_id, Some(data.into_inner())).await
 }
 async fn process_club_permission<'r>(auth: State<JWT>, club: &str, target_id: u64, data: Option<Permissions>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
@@ -68,7 +63,7 @@ async fn process_club_permission<'r>(auth: State<JWT>, club: &str, target_id: u6
         }
     };
 
-    let redir = Response::Redirect(None, format!("/clubs/{club}/discord_permissions").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}/discord_permissions").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
@@ -84,19 +79,15 @@ async fn process_club_permission<'r>(auth: State<JWT>, club: &str, target_id: u6
 pub struct NewPermission {
     target_id: u64,
 }
-#[actix_web::put("/api/club/<club>/manage_permissions")]
-pub async fn new_club_permission<'r>(auth: State<JWT>, club: String, data: actix_web::web::Form<NewPermission>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+#[actix_web::post("/api/club/{club}/manage_permissions")]
+pub async fn new_club_permission<'r>(auth: State<JWT>, path: actix_web::web::Path<String>, data: actix_web::web::Form<NewPermission>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let club = &*path;
     process_club_permission(auth, &club, data.target_id, None).await
 }
-#[actix_web::delete("/api/club/<club>/manage_permissions/<target_id>")]
-pub async fn delete_club_permission<'r>(auth: State<JWT>, club: String, target_id: String) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
-    let target_id = match u64::from_str_radix(&target_id, 10) {
-        Ok(v) => v,
-        Err(err) => return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err{
-            error: Cow::Borrowed("Failed to decode the parsed level as an unsigned integer"),
-            error_description: Some(err.to_string().into()),
-        }))
-    };
+#[actix_web::post("/api/club/{club}/manage_permissions/{target_id}/delete")]
+pub async fn delete_club_permission<'r>(auth: State<JWT>, path: actix_web::web::Path<(String, u64)>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let club = &*path.0;
+    let target_id = path.1;
     let perms = match Permissions::get_from_db(target_id, &club).await {
         Ok(perms) => perms,
         Err(_) => return Response::Error(None, AskamaWrapper(Err{
@@ -134,7 +125,7 @@ pub async fn delete_club_permission<'r>(auth: State<JWT>, club: String, target_i
         }
     };
 
-    let redir = Response::Redirect(None, format!("/clubs/{club}/discord_permissions").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}/discord_permissions").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

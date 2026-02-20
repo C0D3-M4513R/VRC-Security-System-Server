@@ -16,7 +16,7 @@
         <tr>
             <td>
                 <h1>Add Club</h1>
-                <form method="post" action="/api/club">
+                <form method="post" action="api/club">
                     <input type="hidden" name="_method" value="PUT">
                     <label>Path-Name: <input type="text" name="path_name" pattern='[ "-~][ -~]*' required></label><br>
                     <input type="submit" value="Create Club">
@@ -25,7 +25,7 @@
             <td></td>
             <td>
                 <h1>Add Discord User</h1>
-                <form method="post" action="/api/discord/info">
+                <form method="post" action="api/discord/info/add">
                     <input type="hidden" name="_method" value="PUT">
                     <label>ID: <input type="number" name="discord_id" required></label><br>
                     <label>Username: <input type="text" name="username" required></label><br>
@@ -48,7 +48,7 @@
     <h1>Clubs</h1>
     <ul>
         {% for club in clubs %}
-            <li><a href="/clubs/{{club.path_name}}">{{club.name}}</a></li>
+            <li><a href="clubs/{{club.path_name}}/">{{club.name}}</a></li>
         {% endfor %}
     </ul>
 </body>

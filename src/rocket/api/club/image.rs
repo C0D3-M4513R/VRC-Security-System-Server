@@ -5,9 +5,10 @@ use crate::rocket::{AskamaWrapper, ETag, IfNoneMatch, Response, State};
 use crate::rocket::auth::discord::JWT;
 use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
-#[derive(serde_derive::Deserialize)]
+#[derive(actix_multipart::form::MultipartForm)]
 pub struct Upload {
-    file: Vec<u8>,
+    #[multipart(limit = "30MB")]
+    file: actix_multipart::form::bytes::Bytes,
 }
 pub struct PutImageResponse{
     location: String
@@ -17,7 +18,7 @@ impl actix_web::Responder for PutImageResponse {
     type Body = actix_web::body::EitherBody<(), <Response<actix_web::HttpResponse<core::convert::Infallible>> as actix_web::Responder>::Body>;
 
     fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
-        let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::TEMPORARY_REDIRECT, actix_web::body::EitherBody::left(()));
+        let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::SEE_OTHER, actix_web::body::EitherBody::left(()));
         resp.headers_mut().insert(actix_web::http::header::CACHE_CONTROL, actix_web::http::header::HeaderValue::from_static("no-cache"));
         match actix_web::http::header::HeaderValue::from_str(&self.location) {
             Ok(v) => resp.headers_mut().append(actix_web::http::header::LOCATION, v),
@@ -27,13 +28,14 @@ impl actix_web::Responder for PutImageResponse {
                     error_description: Some(err.to_string().into())
                 })).respond_to(req).map_into_right_body()
             }
-        }
-        resp
+        }        resp
     }
 }
 
-#[actix_web::post("/api/club/<club>/image/<name>")]
-pub async fn put_image<'r>(auth: State<JWT>, club: String, name: String, data: actix_web::web::Form<Upload>) -> Response<PutImageResponse> {
+#[actix_web::post("/api/club/{club}/image/{name}/change")]
+pub async fn put_image<'r>(auth: State<JWT>, path: actix_web::web::Path<(String, String)>, data: actix_multipart::form::MultipartForm<Upload>) -> Response<PutImageResponse> {
+    let club = &path.0;
+    let name = &path.1;
     let permission:fn(&Permissions)->bool = match name.as_str() {
         "Logo.png" => |v|v.update_logo,
         "Poster1.png" => |v|v.update_poster1,
@@ -51,7 +53,7 @@ pub async fn put_image<'r>(auth: State<JWT>, club: String, name: String, data: a
 
     //The VRChat Limit is 32 MB (do they mean MB or MiB?).
     //We choose a limit less than that, just to be safe.
-    if data.file.len() > 30*1000*1000 {
+    if data.file.data.len() > 30*1000*1000 {
         return Response::Error(Some(actix_web::http::StatusCode::PAYLOAD_TOO_LARGE), AskamaWrapper(Err{
             error: Cow::Borrowed("Request data was too large? Please upload smaller files."),
             error_description: None,
@@ -123,15 +125,19 @@ pub async fn put_image<'r>(auth: State<JWT>, club: String, name: String, data: a
             Ok(buf)
         }
         let data = data.into_inner();
-        let image = match tokio::task::block_in_place(||helper(image::ImageReader::new(std::io::Cursor::new(data.file)))) {
-            Ok(v) => v,
-            Err((code, err)) => return Response::Error(code, err),
+        let image = match tokio::task::spawn_blocking(||helper(image::ImageReader::new(std::io::Cursor::new(data.file.data)))).await {
+            Ok(Ok(v)) => v,
+            Ok(Err((code, err))) => return Response::Error(code, err),
+            Err(err) => return Response::Error(None, AskamaWrapper(Err{
+                error: Cow::Borrowed("Encountered an exception, whilst parsing the Image Data"),
+                error_description: Some(err.to_string().into()),
+            })),
         };
 
         image
     };
 
-    let redir_url = format!("/clubs/{club}");
+    let redir_url = format!("/auth/clubs/{club}/");
     let redir = Response::Redirect(None, redir_url.clone().into());
     let db = crate::get_db().await;
     let table = match match name.as_str() {
@@ -170,8 +176,10 @@ pub static PLACEHOLDER_PNG_ETAG:LazyLock<ETag<'static>> = LazyLock::new(||ETag {
     header: actix_web::http::header::HeaderMap::new(),
 });
 
-#[actix_web::get("/api/club/<club>/image/<name>")]
-pub async fn get_image<'r>(_auth: State<JWT>, etag: IfNoneMatch, club: String, name: String) -> Response<ETag<'static>> {
+#[actix_web::get("/api/club/{club}/image/{name}")]
+pub async fn get_image<'r>(_auth: State<JWT>, etag: IfNoneMatch, path: actix_web::web::Path<(String, String)>) -> Response<ETag<'static>> {
+    let club = &path.0;
+    let name = &path.1;
     let db = crate::get_db().await;
     macro_rules! make_etag {
         ($ident:ident) => {

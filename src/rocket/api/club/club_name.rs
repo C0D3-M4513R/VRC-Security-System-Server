@@ -8,11 +8,12 @@ use crate::rocket::auth::discord::JWT;
 pub struct Name {
     name: String,
 }
-#[actix_web::put("/api/club/<club>/club_name")]
-pub async fn put_club_name<'r>(auth: State<JWT>, club: String, data: actix_web::web::Form<Name>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
-    if data.name.starts_with("!") {
+#[actix_web::post("/api/club/{club}/club_name")]
+pub async fn put_club_name<'r>(auth: State<JWT>, path: actix_web::web::Path<String>, data: actix_web::web::Form<Name>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let club = &*path;
+    if club.starts_with("!") != data.name.starts_with("!") {
         return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(crate::modals::err::Err {
-            error: Cow::Borrowed("The Specified Club-Name starts with !, which isn't allowed!"),
+            error: Cow::Borrowed("The either the specified Club-Name starts with !, but the current one does or vice-versa. Both options aren't allowed!"),
             error_description: None,
         }))
     }
@@ -45,7 +46,7 @@ pub async fn put_club_name<'r>(auth: State<JWT>, club: String, data: actix_web::
         }
     };
 
-    let redir = Response::Redirect(None, format!("/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

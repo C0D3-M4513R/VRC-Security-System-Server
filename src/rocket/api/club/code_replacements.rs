@@ -5,8 +5,10 @@ use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
 use crate::rocket::Response;
 
-#[actix_web::put("/api/club/<club>/code_replacements/<target_club>")]
-pub async fn put_club_replacement<'r>(auth: State<JWT>, club: String, target_club: String) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+#[actix_web::post("/api/club/{club}/code_replacements/{target_club}/add")]
+pub async fn put_club_replacement<'r>(auth: State<JWT>, path: actix_web::web::Path<(String, String)>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let club = &path.0;
+    let target_club = &path.1;
     match Permissions::require_permission(&auth, &club, |v|v.add_allowed_code_replacements).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
@@ -28,7 +30,7 @@ pub async fn put_club_replacement<'r>(auth: State<JWT>, club: String, target_clu
             }))
         }
     };
-    let redir = Response::Redirect(None, format!("/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
@@ -41,7 +43,7 @@ pub async fn put_club_replacement<'r>(auth: State<JWT>, club: String, target_clu
     redir
 }
 
-#[actix_web::delete("/api/club/<club>/code_replacements/<target_club>")]
+#[actix_web::post("/api/club/{club}/code_replacements/{target_club}/delete")]
 pub async fn delete_club_replacement<'r>(auth: State<JWT>, club: String, target_club: String) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     match Permissions::require_permission(&auth, &club, |v|v.remove_allowed_code_replacements).await {
         Ok(()) => {}
@@ -65,7 +67,7 @@ pub async fn delete_club_replacement<'r>(auth: State<JWT>, club: String, target_
         }
     };
 
-    let redir = Response::Redirect(None, format!("/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

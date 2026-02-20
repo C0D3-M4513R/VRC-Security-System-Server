@@ -9,7 +9,7 @@ pub struct DiscordInfo {
     username: String,
     discriminator: Option<i16>,
 }
-#[actix_web::put("/api/discord/info")]
+#[actix_web::post("/api/discord/info/add")]
 pub async fn put_discord_info<'r>(auth: State<JWT>, data: actix_web::web::Form<DiscordInfo>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     match Permissions::require_permission(&auth, crate::rocket::api::club::CLUB_OWNERS, |v|v.manage_permissions == Some(0)).await {
         Ok(()) => {}

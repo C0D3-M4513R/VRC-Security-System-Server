@@ -19,13 +19,14 @@ pub struct ClubOwner{
     club_owners: Vec<Vec<String>>,
 }
 
-#[actix_web::post("/api/club/<club>/publish")]
+#[actix_web::post("/api/club/{club}/publish")]
 pub async fn post_publish<'r>(
     auth: State<JWT>,
     repo: ::actix_web::web::Data<Mutex<git2::Repository>>,
     mk: State<crate::Keypair>,
-    club: String,
+    path: actix_web::web::Path<String>,
 ) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let club = path.into_inner();
     match Permissions::require_permission(&auth, &club, |v|v.submit).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
@@ -208,7 +209,7 @@ GROUP BY public.club_vrc_permission.permission_level
     let bytes = bytes;
 
     let repo = (&*repo).clone().lock_owned().await;
-    let redir = format!("/clubs/{club}");
+    let redir = format!("/auth/clubs/{club}");
     match tokio::task::spawn_blocking(move || {
         if let Some(res) = res {
             crate::git::push::push_files(

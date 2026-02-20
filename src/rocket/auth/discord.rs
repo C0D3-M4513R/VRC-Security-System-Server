@@ -1,7 +1,6 @@
 use actix_web::HttpMessage;
 pub mod new;
 pub mod oauth;
-pub mod err;
 pub mod logout;
 
 use std::borrow::Cow;
@@ -372,9 +371,18 @@ impl actix_web::ResponseError for AuthErr {
                 description: Cow::Borrowed("Failed to serialize the new Discord-Auth information.")
             },
         }).render();
-        actix_web::HttpResponse::InternalServerError()
+        let mut resp = actix_web::HttpResponse::InternalServerError()
             .insert_header((actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("text/html")))
-            .body(content.map_or_else(core::convert::identity, core::convert::identity))
+            .body(content.map_or_else(core::convert::identity, core::convert::identity));
+
+        match self {
+            Self::NoCookie => {
+                *resp.status_mut() = actix_web::http::StatusCode::UNAUTHORIZED;
+            }
+            _ => {}
+        }
+
+        resp
     }
 }
 
