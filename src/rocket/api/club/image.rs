@@ -140,7 +140,7 @@ pub async fn put_image<'r>(auth: State<JWT>, path: actix_web::web::Path<(String,
     let redir_url = format!("/auth/clubs/{club}/");
     let redir = Response::Redirect(None, redir_url.clone().into());
     let db = crate::get_db().await;
-    let table = match match name.as_str() {
+    let _ = match match name.as_str() {
         "Logo.png" => sqlx::query!(r#"SELECT change_logo($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
         "Poster1.png" => sqlx::query!(r#"SELECT change_poster1($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
         "Poster2.png" => sqlx::query!(r#"SELECT change_poster2($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
