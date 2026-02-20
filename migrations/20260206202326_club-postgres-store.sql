@@ -1,3 +1,44 @@
+create table club_logo
+(
+    club_id bigint not null
+        constraint club_logo_pk
+            primary key
+        constraint club_logo_club_id_fk
+            references club
+            on update restrict on delete cascade,
+    image   bytea  not null
+);
+create table club_poster1
+(
+    club_id bigint not null
+        constraint club_poster1_pk
+            primary key
+        constraint club_poster1_club_id_fk
+            references club
+            on update restrict on delete cascade,
+    image   bytea  not null
+);
+create table club_poster2
+(
+    club_id bigint not null
+        constraint club_poster2_pk
+            primary key
+        constraint club_poster2_club_id_fk
+            references club
+            on update restrict on delete cascade,
+    image   bytea  not null
+);
+create table club_poster3
+(
+    club_id bigint not null
+        constraint club_poster3_pk
+            primary key
+        constraint club_poster3_club_id_fk
+            references club
+            on update restrict on delete cascade,
+    image   bytea  not null
+);
+
 create function change_poster3(
     discord_id bigint,
     "club-path-name" text,
@@ -23,6 +64,53 @@ WHEN MATCHED THEN
 WHEN NOT MATCHED THEN
     INSERT (club_id, image) VALUES (valid.id, valid.image)
 $$;
+create table vrc_name
+(
+    id   bigint generated always as identity
+        constraint vrc_name_pk
+            primary key,
+    name text not null
+);
+
+create unique index vrc_name_id_uindex
+    on vrc_name (id);
+
+create unique index vrc_name_name_uindex
+    on vrc_name (name);
+
+create table club_vrc_permission
+(
+    club_id          bigint   not null
+        constraint club_vrc_permission_club_id_fk
+            references club,
+    vrc_name         bigint   not null
+        constraint club_vrc_permission_vrc_name_id_fk
+            references vrc_name,
+    permission_level smallint not null,
+    constraint club_vrc_permission_pk
+        primary key (club_id, vrc_name, permission_level)
+);
+
+create index club_vrc_permission_club_id_index
+    on club_vrc_permission (club_id);
+
+create index club_vrc_permission_club_id_permission_level_index
+    on club_vrc_permission (club_id, permission_level);
+
+
+create table club_allowed_replace
+(
+    club_id          bigint not null
+        constraint club_allowed_replace_club_id_fk
+            references club
+            on update restrict on delete cascade,
+    switch_to_clubid bigint not null
+        constraint club_allowed_replace_club_id_fk_2
+            references club
+            on update restrict on delete cascade,
+    constraint club_allowed_replace_pk
+        primary key (club_id, switch_to_clubid)
+);
 
 create function change_club_name(
     discord_id bigint,
