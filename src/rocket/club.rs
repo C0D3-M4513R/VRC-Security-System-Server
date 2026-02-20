@@ -3,19 +3,14 @@ pub mod vrchat_permissions;
 pub mod manage_permissions;
 
 use std::borrow::Cow;
-use crate::rocket::{AskamaWrapper, Response};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::{AskamaWrapper, Response, State};
+use crate::rocket::auth::discord::JWT;
 use crate::rocket::api::club::build_permission_from_res;
 use crate::modals::err::Err;
 use crate::modals::clubs::{Club, Clubs};
 
 #[actix_web::get("/clubs")]
-pub async fn get_club(auth: State<JWT>) -> Response<AskamaWrapper<Clubs>> {
-    let auth = match auth {
-        Ok(a) => a,
-        Err(e) => return Response::AuthErr(e),
-    };
-
+pub async fn get_club<'r>(auth: State<JWT>) -> Response<AskamaWrapper<Clubs>> {
     let db = crate::get_db().await;
     let res = match sqlx::query!(r#"
         SELECT
@@ -29,10 +24,10 @@ pub async fn get_club(auth: State<JWT>) -> Response<AskamaWrapper<Clubs>> {
     "#, auth.get_user_id().cast_signed()).fetch_all(&db)
         .await {
         Ok(res) => res,
-        Err(_) => return Response::Error((actix_web::http::StatusCode::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error(None, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to fetch your permissions across club's from the Database"),
             error_description: None
-        }))),
+        })),
     };
     let permission = match sqlx::query!(r#"
         SELECT
@@ -43,10 +38,10 @@ pub async fn get_club(auth: State<JWT>) -> Response<AskamaWrapper<Clubs>> {
         .await {
         Ok(Some(v)) => Some(build_permission_from_res!(v)),
         Ok(None) => None,
-        Err(_) => return Response::Error((actix_web::http::StatusCode::InternalServerError, AskamaWrapper(Err{
+        Err(_) => return Response::Error(None, AskamaWrapper(Err{
             error: Cow::Borrowed("Failed to fetch your permissions across from the Database"),
             error_description: None
-        }))),
+        })),
     };
 
     Response::Ok(AskamaWrapper(Clubs{

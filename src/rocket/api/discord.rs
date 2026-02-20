@@ -1,21 +1,16 @@
 use std::borrow::Cow;
 use crate::rocket::api::club::Permissions;
-use crate::rocket::auth::discord::{AuthErr, JWT};
-use crate::rocket::{AskamaWrapper, Response};
+use crate::rocket::auth::discord::JWT;
+use crate::rocket::{AskamaWrapper, Response, State};
 
 #[derive(serde_derive::Deserialize)]
-pub struct DiscordInfo<'r> {
+pub struct DiscordInfo {
     discord_id: u64,
-    username: &'r str,
+    username: String,
     discriminator: Option<i16>,
 }
 #[actix_web::put("/api/discord/info")]
-pub async fn put_discord_info<'r>(auth: State<'r, JWT>, data: actix_web::web::Form<DiscordInfo<'r>>) -> Response<()> {
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
-
+pub async fn put_discord_info<'r>(auth: State<JWT>, data: actix_web::web::Form<DiscordInfo>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     match Permissions::require_permission(&auth, crate::rocket::api::club::CLUB_OWNERS, |v|v.manage_permissions == Some(0)).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),

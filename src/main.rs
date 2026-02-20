@@ -121,8 +121,8 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
     let discord = rocket::auth::discord::setup().await?;
     let key = {
         let secret_key = std::env::var("ROCKET_SECRET_KEY")
-            .map_err(|err|::anyhow::format_err!("Could not find MAX_PERMISSION_LEVEL: {err}"))?
-            .map(|v|base64::engine::general_purpose::STANDARD.decode(v))
+            .map_err(|err|::anyhow::format_err!("Could not find MAX_PERMISSION_LEVEL: {err}"))
+            .map(|v|base64::engine::general_purpose::STANDARD.decode(v))?
             .map_err(|err|::anyhow::format_err!("Could not decode contents of ROCKET_SECRET_KEY as base64: {err}"))?;
         actix_web::cookie::Key::try_from(secret_key.as_slice())
             .map_err(|err|anyhow::format_err!("Could not parse secret key: {err}"))?
@@ -142,9 +142,9 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
                 .into()
         ,
     };
-    let repo = Mutex::new(repo);
-    actix_web::HttpServer::new(||{
-        let mut app = actix_web::App::new()
+    let repo = actix_web::web::Data::new(Mutex::new(repo));
+    actix_web::HttpServer::new(move ||{
+        let app = actix_web::App::new()
             .wrap(actix_web::middleware::Logger::default());
 
         macro_rules! register_routes {
@@ -161,8 +161,8 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
             rocket::get_index
         );
         let app = {
-            let scope = actix_web::web::scope("/auth");
-            scope.wrap(actix_web::middleware::from_fn(crate::rocket::auth::discord::my_middleware));
+            let scope = actix_web::web::scope("/auth")
+                .wrap(actix_web::middleware::from_fn(crate::rocket::auth::discord::my_middleware));
             register_routes!(scope,
                 rocket::api::club::code_replacements::put_club_replacement,
                 rocket::api::club::code_replacements::delete_club_replacement,
@@ -186,8 +186,9 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
             app.service(scope)
         };
 
-        let app = app.app_data(actix_web::web::Data::new(repo));
+        let app = app.app_data(repo.clone());
         let app = app.app_data(mk);
+        let app = app.app_data(key.clone());
         let app = app.app_data(discord.clone());
         let app = app.app_data(limits.clone());
         app

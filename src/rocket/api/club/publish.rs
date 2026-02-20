@@ -1,12 +1,11 @@
 use std::borrow::Cow;
-use std::sync::Arc;
 use base64::Engine;
 use tokio::sync::Mutex;
 use crate::git::push::add_files_top;
 use crate::modals::err::Err;
 use crate::rocket::api::club::{Permissions, CLUB_OWNERS};
 use crate::rocket::{AskamaWrapper, State};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 use crate::rocket::Response;
 
 #[derive(Debug, serde_derive::Serialize)]
@@ -22,11 +21,11 @@ pub struct ClubOwner{
 
 #[actix_web::post("/api/club/<club>/publish")]
 pub async fn post_publish<'r>(
-    auth: State<'r, JWT>,
-    repo: &::actix_web::web::Data<Arc<Mutex<git2::Repository>>>,
-    mk: &::actix_web::web::Data<crate::Keypair>,
+    auth: State<JWT>,
+    repo: ::actix_web::web::Data<Mutex<git2::Repository>>,
+    mk: State<crate::Keypair>,
     club: String,
-) -> Response<()> {
+) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     match Permissions::require_permission(&auth, &club, |v|v.submit).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
@@ -208,7 +207,7 @@ GROUP BY public.club_vrc_permission.permission_level
     }
     let bytes = bytes;
 
-    let repo = repo.inner().clone().lock_owned().await;
+    let repo = (&*repo).clone().lock_owned().await;
     let redir = format!("/clubs/{club}");
     match tokio::task::spawn_blocking(move || {
         if let Some(res) = res {

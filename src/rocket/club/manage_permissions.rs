@@ -8,12 +8,7 @@ use crate::rocket::{AskamaWrapper, Response, State};
 use crate::rocket::auth::discord::JWT;
 
 #[actix_web::get("/clubs/<club>/discord_permissions")]
-pub async fn get_club_discord_permissions<'r>(auth: State<'r, JWT>, limits: &'r actix_web::web::Data<Limits>, club: &str) -> Response<AskamaWrapper<ClubDiscordPermissions<'r>>> {
-    let auth = match auth {
-        Ok(a) => a,
-        Err(e) => return Response::AuthErr(e),
-    };
-
+pub async fn get_club_discord_permissions<'r>(auth: State<JWT>, limits: State<Limits>, club: String) -> Response<AskamaWrapper<ClubDiscordPermissions>> {
     let db = crate::get_db().await;
     let res = match sqlx::query!(r#"
         SELECT
@@ -72,7 +67,7 @@ pub async fn get_club_discord_permissions<'r>(auth: State<'r, JWT>, limits: &'r 
             code: res.code,
             path_name: res.path_name,
             permissions: perms,
-            limits: &**limits
+            limits: limits.clone()
         },
         permissions: discord_perms.into_iter().map(|v|DiscordPermission{
             discord_id: v.discord_id.cast_unsigned(),

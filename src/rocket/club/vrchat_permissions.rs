@@ -8,12 +8,7 @@ use crate::rocket::{AskamaWrapper, Response, State};
 use crate::rocket::auth::discord::JWT;
 
 #[actix_web::get("/clubs/<club>/vrchat_permissions")]
-pub async fn get_club_vrc_names<'r>(auth: State<'r, JWT>, limits: &'r actix_web::web::Data<Limits>, club: &str) -> Response<AskamaWrapper<ClubVRCPermissions<'r>>> {
-    let auth = match auth {
-        Ok(a) => a,
-        Err(e) => return Response::AuthErr(e),
-    };
-
+pub async fn get_club_vrc_names<'r>(auth: State<JWT>, limits: State<Limits>, club: String) -> Response<AskamaWrapper<ClubVRCPermissions>> {
     let db = crate::get_db().await;
     let res = match sqlx::query!(r#"
         SELECT
@@ -72,7 +67,7 @@ pub async fn get_club_vrc_names<'r>(auth: State<'r, JWT>, limits: &'r actix_web:
             code: res.code,
             path_name: res.path_name,
             permissions: perms,
-            limits: &**limits,
+            limits: limits.clone(),
         },
         permissions: vrc_perms.into_iter().map(|v|VRCPermission{ vrc_name: v.vrc_name, permission_level: v.permission_level }).collect(),
     }))

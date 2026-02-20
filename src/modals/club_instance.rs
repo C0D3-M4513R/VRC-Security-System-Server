@@ -4,10 +4,10 @@ use crate::rocket::api::club::Permissions;
 
 #[derive(askama::Template)]
 #[template(path = "clubs/instance.html")]
-pub struct ClubInstance<'a> {
+pub struct ClubInstance {
     pub name: String,
     pub code: i64,
     pub path_name: String,
     pub permissions: Permissions,
-    pub limits: &'a Limits,
+    pub limits: Limits,
 }

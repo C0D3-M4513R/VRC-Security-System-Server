@@ -1,18 +1,18 @@
 use std::borrow::Cow;
 use crate::Limits;
 use crate::rocket::{AskamaWrapper, Response, State};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
 
 #[derive(serde_derive::Deserialize)]
-pub struct VRCUserLevel<'r> {
-    vrc_name: &'r str,
+pub struct VRCUserLevel {
+    vrc_name: String,
     permission_level: i16,
 }
 
 #[actix_web::put("/api/club/<club>/vrcuser_level")]
-pub async fn put_vrcuser_level<'r>(limits: State<'r, Limits>, auth: State<'r, JWT>, club: &'r str, data: actix_web::web::Form<VRCUserLevel<'r>>) -> Response<()> {
+pub async fn put_vrcuser_level<'r>(limits: State<Limits>, auth: State<JWT>, club: String, data: actix_web::web::Form<VRCUserLevel>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     let data = data.into_inner();
     if data.permission_level < 0 {
         return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err {
@@ -26,11 +26,7 @@ pub async fn put_vrcuser_level<'r>(limits: State<'r, Limits>, auth: State<'r, JW
             error_description: Some(Cow::Owned(format!("The level {} exceeds the allowed maximum of {}", data.permission_level, limits.max_permission_level))),
         }));
     }
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
-    match Permissions::require_permission(&auth, club, |v|match v.add_level{
+    match Permissions::require_permission(&auth, &club, |v|match v.add_level{
         None => false,
         Some(v) => v <= data.permission_level
     }).await {
@@ -69,26 +65,23 @@ pub async fn put_vrcuser_level<'r>(limits: State<'r, Limits>, auth: State<'r, JW
 }
 
 #[actix_web::delete("/api/club/<club>/vrcuser_level/<level>/<vrc_username>")]
-pub async fn delete_vrcuser_level<'r>(limits: State<'r, Limits>, auth: State<'r, JWT>, club: &'r str, level: i16, vrc_username: &'r str) -> Response<()> {
-    if level < 0 {
-        return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err {
-            error: Cow::Borrowed("The specified permission level is too low"),
-            error_description: Some(Cow::Owned(format!("The level {level} cannot be lower than 0"))),
-        }));
-    }
+pub async fn delete_vrcuser_level<'r>(limits: State<Limits>, auth: State<JWT>, club: String, level: String, vrc_username: String) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    let level = match u32::from_str_radix(&level, 10) {
+        Ok(v) => v,
+        Err(err) => return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err{
+            error: Cow::Borrowed("Failed to decode the parsed level as an unsigned integer"),
+            error_description: Some(err.to_string().into()),
+        }))
+    };
     if level as u64 > limits.max_permission_level {
         return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(Err {
             error: Cow::Borrowed("The specified permission level is too high"),
             error_description: Some(Cow::Owned(format!("The level {level} exceeds the allowed maximum of {}", limits.max_permission_level))),
         }));
     }
-    let auth = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
-    match Permissions::require_permission(&auth, club, |v|match v.remove_level{
+    match Permissions::require_permission(&auth, &club, |v|match v.remove_level{
         None => false,
-        Some(v) => v <= level
+        Some(v) => u32::from(v.cast_unsigned()) <= level
     }).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
@@ -96,7 +89,7 @@ pub async fn delete_vrcuser_level<'r>(limits: State<'r, Limits>, auth: State<'r,
     let db = crate::get_db().await;
     let table = match sqlx::query!(
         "SELECT remove_vrcuser_level($1, $2, $3, $4)",
-        auth.get_user_id().cast_signed(), club, vrc_username, i32::from(level)
+        auth.get_user_id().cast_signed(), club, vrc_username, level.cast_signed()
     )
         .execute(&db)
         .await

@@ -9,7 +9,7 @@ pub struct DiscordPermission {
 }
 #[derive(askama::Template)]
 #[template(path = "clubs/manage-discord-permissions.html")]
-pub struct ClubDiscordPermissions<'a> {
-    pub information: super::club_instance::ClubInstance<'a>,
+pub struct ClubDiscordPermissions {
+    pub information: super::club_instance::ClubInstance,
     pub permissions: Vec<DiscordPermission>,
 }

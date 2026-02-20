@@ -2,14 +2,14 @@ use std::borrow::Cow;
 use crate::rocket::{Response, State};
 use crate::rocket::api::club::{Permissions, CLUB_OWNERS};
 use crate::rocket::AskamaWrapper;
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 
 #[derive(serde_derive::Deserialize)]
-pub struct Name<'r> {
-    path_name: &'r str,
+pub struct Name {
+    path_name: String,
 }
 #[actix_web::put("/api/club")]
-pub async fn put_club<'r>(auth: State<'r, JWT>, data: actix_web::web::Form<Name<'r>>) -> Response<()> {
+pub async fn put_club<'r>(auth: State<JWT>, data: actix_web::web::Form<Name>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     match Permissions::require_permission(&auth, CLUB_OWNERS, |v|v.manage_permissions == Some(0)).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
@@ -25,7 +25,7 @@ pub async fn put_club<'r>(auth: State<'r, JWT>, data: actix_web::web::Form<Name<
             }))
         }
     };
-    let club = data.path_name;
+    let club = &data.path_name;
     let db = crate::get_db().await;
     let table = match sqlx::query!(
         "SELECT club_create($1, club_get_new_code(), $2, $3, $4)",

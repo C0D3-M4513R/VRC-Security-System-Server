@@ -4,9 +4,9 @@ use crate::modals::err::Err;
 use crate::rocket::Response;
 
 #[actix_web::get("/api/auth/discord/oauth?{code}&{state}")]
-pub async fn oauth_ok<'a>(discord: State<'a, super::Discord>, key: State<'a, actix_web::cookie::Key>, req: &actix_web::HttpRequest, code: &str, state: &str) -> Response<actix_web::HttpResponse<&'static str>> {
+pub async fn oauth_ok<'a>(discord: State<super::Discord>, key: State<actix_web::cookie::Key>, code: String, state: String) -> Response<actix_web::HttpResponse<&'static str>> {
     let _ = state; //Yes rust, I don't use this field. I know. Now stop complaining.
-    let jwt = match super::JWT::new(discord, code).await {
+    let jwt = match super::JWTInternal::new(&*discord, &code).await {
         Ok(v) => v,
         Err(err) => {
             tracing::warn!("Could not get Discord Auth: {err}");

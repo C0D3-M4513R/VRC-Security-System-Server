@@ -2,30 +2,39 @@ use std::borrow::Cow;
 use std::cmp::min;
 use std::sync::LazyLock;
 use crate::rocket::{AskamaWrapper, ETag, IfNoneMatch, Response, State};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
 #[derive(serde_derive::Deserialize)]
-pub struct Upload<'r> {
-    file: &'r [u8],
+pub struct Upload {
+    file: Vec<u8>,
 }
 pub struct PutImageResponse{
     location: String
 }
 
 impl actix_web::Responder for PutImageResponse {
-    type Body = ();
+    type Body = actix_web::body::EitherBody<(), <Response<actix_web::HttpResponse<core::convert::Infallible>> as actix_web::Responder>::Body>;
 
     fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
-        let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::OK, ());
+        let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::TEMPORARY_REDIRECT, actix_web::body::EitherBody::left(()));
         resp.headers_mut().insert(actix_web::http::header::CACHE_CONTROL, actix_web::http::header::HeaderValue::from_static("no-cache"));
+        match actix_web::http::header::HeaderValue::from_str(&self.location) {
+            Ok(v) => resp.headers_mut().append(actix_web::http::header::LOCATION, v),
+            Err(err) => {
+                return Response::<actix_web::HttpResponse<core::convert::Infallible>>::Error(None, AskamaWrapper(crate::modals::err::Err{
+                    error: Cow::Borrowed("Failed to convert Location header to a valid Header Value"),
+                    error_description: Some(err.to_string().into())
+                })).respond_to(req).map_into_right_body()
+            }
+        }
         resp
     }
 }
 
 #[actix_web::post("/api/club/<club>/image/<name>")]
-pub async fn put_image<'r>(auth: State<'r, JWT>, club: &str, name: &str, data: actix_web::web::Form<Upload<'r>>) -> Response<PutImageResponse> {
-    let permission:fn(&Permissions)->bool = match name {
+pub async fn put_image<'r>(auth: State<JWT>, club: String, name: String, data: actix_web::web::Form<Upload>) -> Response<PutImageResponse> {
+    let permission:fn(&Permissions)->bool = match name.as_str() {
         "Logo.png" => |v|v.update_logo,
         "Poster1.png" => |v|v.update_poster1,
         "Poster2.png" => |v|v.update_poster2,
@@ -35,16 +44,15 @@ pub async fn put_image<'r>(auth: State<'r, JWT>, club: &str, name: &str, data: a
             error_description: None
         })),
     };
-    match Permissions::require_permission(&auth, club, permission).await {
+    match Permissions::require_permission(&auth, &club, permission).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
     }
 
     //The VRChat Limit is 32 MB (do they mean MB or MiB?).
     //We choose a limit less than that, just to be safe.
-
-    if data.file.len() as u128 > rocket::data::ByteUnit::Megabyte(30).as_u128() {
-        return Response::Error(Some(actix_web::http::StatusCode::PayloadTooLarge), AskamaWrapper(Err{
+    if data.file.len() > 30*1000*1000 {
+        return Response::Error(Some(actix_web::http::StatusCode::PAYLOAD_TOO_LARGE), AskamaWrapper(Err{
             error: Cow::Borrowed("Request data was too large? Please upload smaller files."),
             error_description: None,
         }));
@@ -115,44 +123,18 @@ pub async fn put_image<'r>(auth: State<'r, JWT>, club: &str, name: &str, data: a
             Ok(buf)
         }
         let data = data.into_inner();
-        let image = match match data.file {
-            rocket::fs::TempFile::File { path, .. } => {
-                let path = path.as_ref().either(|p|p.as_ref(), |p|p.as_path());
-                let reader = match tokio::fs::File::open(path).await {
-                    Ok(v) => v,
-                    Err(err) => return Response::Error(None, AskamaWrapper(Err{
-                        error: Cow::Borrowed("Io error, whilst opening Temporary-File"),
-                        error_description: Some(Cow::Owned(err.to_string()))
-                    })),
-                };
-                let reader = reader.into_std().await;
-                match tokio::task::spawn_blocking(move ||{
-                    let reader = reader;
-                    let buf_reader = std::io::BufReader::new(&reader);
-                    helper(image::ImageReader::new(buf_reader))
-                }).await {
-                    Ok(v) => v,
-                    Err(err) => return Response::Error(None, AskamaWrapper(Err{
-                        error: Cow::Borrowed("Whilst resizing the Image, the server encountered an internal Exception"),
-                        error_description: Some(Cow::Owned(err.to_string())),
-                    }))
-                }
-            },
-            rocket::fs::TempFile::Buffered { content } => {
-                tokio::task::block_in_place(||helper(image::ImageReader::new(std::io::Cursor::new(content))))
-            },
-        } {
+        let image = match tokio::task::block_in_place(||helper(image::ImageReader::new(std::io::Cursor::new(data.file)))) {
             Ok(v) => v,
-            Err(err) => return Response::Error(err),
+            Err((code, err)) => return Response::Error(code, err),
         };
 
         image
     };
 
     let redir_url = format!("/clubs/{club}");
-    let redir = Response::Redirect(None, redir_url.clone());
+    let redir = Response::Redirect(None, redir_url.clone().into());
     let db = crate::get_db().await;
-    let table = match match name {
+    let table = match match name.as_str() {
         "Logo.png" => sqlx::query!(r#"SELECT change_logo($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
         "Poster1.png" => sqlx::query!(r#"SELECT change_poster1($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
         "Poster2.png" => sqlx::query!(r#"SELECT change_poster2($1, $2, $3) as "digest!""#, auth.get_user_id().cast_signed(), club, bytes.as_slice()).fetch_optional(&db).await.map(|v|v.map(|v|v.digest)),
@@ -189,11 +171,7 @@ pub static PLACEHOLDER_PNG_ETAG:LazyLock<ETag<'static>> = LazyLock::new(||ETag {
 });
 
 #[actix_web::get("/api/club/<club>/image/<name>")]
-pub async fn get_image(auth: State<JWT>, etag: IfNoneMatch, club: &str, name: &str) -> Response<ETag<'static>> {
-    let _ = match auth {
-        Ok(jwt) => jwt,
-        Err(err) => return Response::AuthErr(err),
-    };
+pub async fn get_image<'r>(_auth: State<JWT>, etag: IfNoneMatch, club: String, name: String) -> Response<ETag<'static>> {
     let db = crate::get_db().await;
     macro_rules! make_etag {
         ($ident:ident) => {
@@ -225,7 +203,7 @@ pub async fn get_image(auth: State<JWT>, etag: IfNoneMatch, club: &str, name: &s
                 header,
             })
         };
-        match match name {
+        match match name.as_str() {
             "Logo.png" => sqlx::query!(r#"SELECT true as dummy FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
             "Poster1.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
             "Poster2.png" => sqlx::query!(r#"SELECT true as dummy FROM club_poster2 INNER JOIN club ON club_poster2.club_id = club.id WHERE club."path-name" = $1 AND digest = $2 "#, club, i.as_slice()).fetch_optional(&db).await.map(|v|v.map(|_|())),
@@ -246,7 +224,7 @@ pub async fn get_image(auth: State<JWT>, etag: IfNoneMatch, club: &str, name: &s
             }
         }
     }
-    let mut etag:ETag = match match name {
+    let mut etag:ETag = match match name.as_str() {
         "Logo.png" => sqlx::query!(r#"SELECT image, digest FROM club_logo INNER JOIN club ON club_logo.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
         "Poster1.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster1 INNER JOIN club ON club_poster1.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),
         "Poster2.png" => sqlx::query!(r#"SELECT image, digest FROM club_poster2 INNER JOIN club ON club_poster2.club_id = club.id WHERE club."path-name" = $1"#, club).fetch_optional(&db).await.map(|v|v.map(|v|make_etag!(v))),

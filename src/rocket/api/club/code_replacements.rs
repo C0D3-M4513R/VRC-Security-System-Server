@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 use crate::rocket::{AskamaWrapper, State};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 use crate::modals::err::Err;
 use crate::rocket::api::club::Permissions;
 use crate::rocket::Response;
 
 #[actix_web::put("/api/club/<club>/code_replacements/<target_club>")]
-pub async fn put_club_replacement<'r>(auth: State<'r, JWT>, club: &'r str, target_club: &'r str) -> Response<()> {
-    match Permissions::require_permission(&auth, club, |v|v.add_allowed_code_replacements).await {
+pub async fn put_club_replacement<'r>(auth: State<JWT>, club: String, target_club: String) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    match Permissions::require_permission(&auth, &club, |v|v.add_allowed_code_replacements).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
     }
@@ -42,8 +42,8 @@ pub async fn put_club_replacement<'r>(auth: State<'r, JWT>, club: &'r str, targe
 }
 
 #[actix_web::delete("/api/club/<club>/code_replacements/<target_club>")]
-pub async fn delete_club_replacement<'r>(auth: State<'r, JWT>, club: &'r str, target_club: &'r str) -> Response<()> {
-    match Permissions::require_permission(&auth, club, |v|v.remove_allowed_code_replacements).await {
+pub async fn delete_club_replacement<'r>(auth: State<JWT>, club: String, target_club: String) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    match Permissions::require_permission(&auth, &club, |v|v.remove_allowed_code_replacements).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
     }

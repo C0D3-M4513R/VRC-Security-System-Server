@@ -1,3 +1,4 @@
+use actix_web::HttpMessage;
 pub mod new;
 pub mod oauth;
 pub mod err;
@@ -9,8 +10,6 @@ use std::num::NonZeroU16;
 use std::str::FromStr;
 use std::time::{UNIX_EPOCH};
 use actix_web::body::BoxBody;
-use actix_web::{HttpMessage, Responder};
-use askama::Template;
 use crate::rocket::AskamaWrapper;
 
 const DISCORD_TOKEN_COOKIE_NAME: &str = "discord_jwt";
@@ -40,6 +39,7 @@ pub async fn setup() -> ::anyhow::Result<Discord> {
     })
 }
 
+#[derive(Debug, Clone)]
 pub struct JWT{
     jwt: JWTInternal,
 }
@@ -49,9 +49,9 @@ impl core::ops::Deref for JWT {
         &self.jwt
     }
 }
-#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 #[non_exhaustive]
-enum JWTInternal {
+pub enum JWTInternal {
     V1(TokenMeta)
 }
 
@@ -136,7 +136,7 @@ impl JWTInternal {
     }
 }
 
-#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct TokenMeta {
     token: Token,
     created_at: u64,
@@ -271,7 +271,7 @@ impl TokenMeta {
     }
 }
 
-#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct Token {
     pub access_token: String,
     pub token_type: String,
@@ -279,7 +279,7 @@ pub struct Token {
     pub refresh_token: String,
     pub scope: String,
 }
-#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 struct RefreshToken<'a> {
     grant_type: Cow<'a, str>,
     refresh_token: Cow<'a, str>,
@@ -336,7 +336,7 @@ impl std::error::Error for AuthErr {
             AuthErr::SerialisationError(err) => Some(&**err),
             AuthErr::ValidationError(err) => Some(&**err),
             AuthErr::RefreshError(err) => Some(&**err),
-            AuthErr::CookieHeaderInvalidValue(err) => Some(&**err),
+            AuthErr::CookieHeaderInvalidValue(err) => Some(err),
             _ => None,
         }
     }
@@ -422,39 +422,53 @@ impl actix_web::Responder for AuthErr {
 
 pub async fn my_middleware(
     req: actix_web::dev::ServiceRequest,
-    next: actix_web::middleware::Next<impl actix_web::body::MessageBody>,
+    next: actix_web::middleware::Next<impl actix_web::body::MessageBody + 'static>,
 ) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, actix_web::Error> {
-    let cookie = match req.cookies().get(DISCORD_TOKEN_COOKIE_NAME) {
+    let cookie = match req.cookie(DISCORD_TOKEN_COOKIE_NAME) {
         Some(v) => v,
-        None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookie, req),
+        None => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookie, req.request().clone())),
     };
-    let mut jwt = match serde_json::from_str::<JWTInternal>(cookie.value_trimmed()) {
+    let key = match req.app_data(){
+        Some(v) => v,
+        None => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::NoSecretKey, req.request().clone())),
+    };
+    let cookie = {
+        let mut jar = actix_web::cookie::CookieJar::new();
+        jar.add_original(cookie);
+        let private = jar.private(key);
+
+        match private.get(DISCORD_TOKEN_COOKIE_NAME) {
+            Some(cookie) => cookie,
+            None => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookieSet, req.request().clone())),
+        }
+    };
+    let cookie = cookie.value();
+    let cookie = cookie.strip_prefix(r#"""#).unwrap_or(cookie);
+    let cookie = cookie.strip_suffix(r#"""#).unwrap_or(cookie);
+
+    let mut jwt = match serde_json::from_str::<JWTInternal>(cookie) {
         Ok(v) => v,
-        Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::DeserialisationError(err.into()), req),
+        Err(err) => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::DeserialisationError(err.into()), req.request().clone())),
     };
     let cookie = if !match jwt.is_valid() {
         Ok(v) => v,
-        Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::ValidationError(err), req),
+        Err(err) => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::ValidationError(err), req.request().clone())),
     } {
         let discord = match req.app_data::<Discord>() {
             Some(v) => v,
-            None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoDiscord, req),
+            None => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::NoDiscord, req.request().clone())),
         };
         match jwt.refresh(discord).await {
             Ok(()) => {},
-            Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::RefreshError(err), req),
+            Err(err) => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::RefreshError(err), req.request().clone())),
         }
         let jwt_str = match serde_json::to_string(&jwt) {
             Ok(v) => v,
-            Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::SerialisationError(err.into()), req),
+            Err(err) => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::SerialisationError(err.into()), req.request().clone())),
         };
 
         let mut jar = actix_web::cookie::CookieJar::new();
         {
-            let key = match req.app_data(){
-                Some(v) => v,
-                None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoSecretKey, req),
-            };
             let mut jar = jar.private_mut(key);
             let mut cookie = actix_web::cookie::Cookie::new(DISCORD_TOKEN_COOKIE_NAME, jwt_str);
             cookie.set_secure(true);
@@ -462,11 +476,11 @@ pub async fn my_middleware(
         }
         let cookie = match jar.get(DISCORD_TOKEN_COOKIE_NAME) {
             Some(cookie) => cookie,
-            None => return actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookieSet, req),
+            None => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::NoCookieSet, req.request().clone())),
         };
-        let cookie = match actix_web::http::header::HeaderValue::from_str(cookie.to_string()) {
+        let cookie = match actix_web::http::header::HeaderValue::from_str(&cookie.to_string()) {
             Ok(v) => v,
-            Err(err) => return actix_web::dev::ServiceResponse::from_err(AuthErr::CookieHeaderInvalidValue(err), req),
+            Err(err) => return Ok(actix_web::dev::ServiceResponse::from_err(AuthErr::CookieHeaderInvalidValue(err), req.request().clone())),
         };
 
         req.extensions_mut().insert(JWT{
@@ -480,12 +494,12 @@ pub async fn my_middleware(
         None
     };
 
-    let resp = next.call(req).await?;
+    let mut resp = next.call(req).await?;
 
     // post-processing
     if let Some(cookie) = cookie {
-        resp.response().headers_mut().append(actix_web::http::header::SET_COOKIE, cookie);
+        resp.response_mut().headers_mut().append(actix_web::http::header::SET_COOKIE, cookie);
     }
 
-    Ok(resp)
+    Ok(resp.map_body(|_, body| body.boxed()))
 }

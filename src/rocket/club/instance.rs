@@ -4,15 +4,10 @@ use crate::modals::err::Err;
 use crate::modals::club_instance::ClubInstance;
 use crate::rocket::api::club::build_permission_from_res;
 use crate::rocket::{AskamaWrapper, Response, State};
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 
 #[actix_web::get("/clubs/<club>")]
-pub async fn get_club_instance<'r>(auth: State<'r, JWT>, limits: &'r actix_web::web::Data<Limits>, club: &str) -> Response<AskamaWrapper<ClubInstance<'r>>> {
-    let auth = match auth {
-        Ok(a) => a,
-        Err(e) => return Response::AuthErr(e),
-    };
-
+pub async fn get_club_instance<'r>(auth: State<JWT>, limits: State<Limits>, club: String) -> Response<AskamaWrapper<ClubInstance>> {
     let db = crate::get_db().await;
     let res = match sqlx::query!(r#"
         SELECT
@@ -48,6 +43,6 @@ pub async fn get_club_instance<'r>(auth: State<'r, JWT>, limits: &'r actix_web::
         code: res.code,
         path_name: res.path_name,
         permissions: perms,
-        limits: &**limits,
+        limits: limits.clone(),
     }))
 }

@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use actix_web::dev::Payload;
+use actix_web::HttpRequest;
 use base64::Engine;
 use crate::Keypair;
 use crate::rocket::auth::discord::AuthErr;
@@ -8,14 +10,14 @@ pub mod auth;
 pub mod club;
 
 #[actix_web::get("/")]
-pub fn get_index() -> Response<()> {
+pub async fn get_index() -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     Response::Redirect(None, "/clubs".into())
 }
 #[actix_web::get("/favicon.ico")]
-pub fn get_favicon() -> actix_web::HttpResponse {
-    actix_web::HttpResponse::Ok()
-        .insert_header((actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("image/x-icon")))
-        .body(include_bytes!("../favicon.ico"))
+pub async fn get_favicon() -> actix_web::HttpResponse<&'static [u8]> {
+    let mut res = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::OK, include_bytes!("../favicon.ico").as_slice());
+    res.headers_mut().insert(actix_web::http::header::CONTENT_TYPE, actix_web::http::header::HeaderValue::from_static("image/x-icon"));
+    res
 }
 
 pub struct AskamaWrapper<T>(pub T);
@@ -64,20 +66,20 @@ pub struct ETag<'a> {
 impl actix_web::Responder for ETag<'static> {
     type Body = actix_web::body::EitherBody<Cow<'static, [u8]>, ()>;
 
-    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
-        (&self).respond_to(req)
-    }
-}
-impl actix_web::Responder for &'_ ETag<'static> {
-    type Body = actix_web::body::EitherBody<Cow<'static, [u8]>, ()>;
-
-    fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
-        let mut response = actix_web::HttpResponse::with_body(self.status, self.data.map_or(actix_web::body::EitherBody::right(()), actix_web::body::EitherBody::left));
+    fn respond_to(self, _: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
+        let mut response = actix_web::HttpResponse::with_body(
+            if self.data.is_none() {
+                actix_web::http::StatusCode::NOT_MODIFIED
+            } else {
+                self.status
+            },
+            self.data.map_or(actix_web::body::EitherBody::right(()), actix_web::body::EitherBody::left)
+        );
         let header_base64 = base64::engine::general_purpose::STANDARD.encode(&self.sha3_512);
-        for (name, value) in self.header.iter() {
-            response.append(name, value);
+        for (name, value) in self.header.into_iter() {
+            response.headers_mut().append(name, value);
         }
-        response.set_status(self.status);
+        *response.status_mut() = self.status;
         let etag = format!("sha3_512-{header_base64}");
         use actix_web::http::header::TryIntoHeaderValue;
         match actix_web::http::header::ETag(actix_web::http::header::EntityTag::new(false, etag)).try_into_value() {
@@ -86,23 +88,22 @@ impl actix_web::Responder for &'_ ETag<'static> {
                 tracing::warn!("Tried to set an etag, but it wasn't valid? Since when is `sha3_512-{{some_base_64}}` not a valid header value?:: {err}");
             }
         }
-        if let Some(data) = self.data.as_ref() {
-            response.set_sized_body(data.len(), std::io::Cursor::new(data));
-        } else {
-            response.set_status(actix_web::http::StatusCode::NOT_MODIFIED);
-        }
-        Ok(response)
+        response
     }
 }
 
 pub struct IfNoneMatch(pub Vec<Vec<u8>>);
-#[rocket::async_trait]
-impl<'r> rocket::request::FromRequest<'r> for IfNoneMatch {
-    type Error = ();
+impl<'r> actix_web::FromRequest for IfNoneMatch {
+    type Error = core::convert::Infallible;
+    type Future = core::future::Ready<Result<Self, Self::Error>>;
 
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         let mut vec = Vec::new();
-        for header in request.headers().get("If-None-Match") {
+        for header in req.headers().get_all("If-None-Match") {
+            let header = match header.to_str(){
+                Ok(h) => h,
+                Err(_) => continue,
+            };
             for header in header.split(","){
                 let header = header.trim();
                 if header.starts_with("W/"){
@@ -125,8 +126,9 @@ impl<'r> rocket::request::FromRequest<'r> for IfNoneMatch {
 
             }
         }
-        Outcome::Success(IfNoneMatch(vec))
+        core::future::ready(Ok(Self(vec)))
     }
+
 }
 pub enum Response<T> {
     Ok(T),
@@ -142,41 +144,49 @@ impl<T:actix_web::Responder> actix_web::Responder for Response<T> {
     fn respond_to(self, req: &actix_web::HttpRequest) -> actix_web::HttpResponse<Self::Body> {
         match self {
             Self::Ok(v) => {
-                v.respond_to(req).into()
+                v.respond_to(req).map_into_right_body()
             }
             Self::AuthErr(err) => {
-                err.respond_to(req).into()
+                err.respond_to(req).map_into_right_body().map_into_left_body()
             }
             Self::Redirect(code, location) => {
-                let mut resp = actix_web::HttpResponse::with_body(code.unwrap_or(actix_web::http::StatusCode::TEMPORARY_REDIRECT), ().into());
-                resp.headers_mut().append(actix_web::http::header::LOCATION, location.into());
-                resp
+                let mut resp = actix_web::HttpResponse::with_body(code.unwrap_or(actix_web::http::StatusCode::TEMPORARY_REDIRECT), ());
+                match actix_web::http::header::HeaderValue::from_str(&location) {
+                    Ok(v) => resp.headers_mut().append(actix_web::http::header::LOCATION, v),
+                    Err(err) => {
+                        return Self::Error(None, AskamaWrapper(crate::modals::err::Err{
+                            error: Cow::Borrowed("Failed to convert Location header to a valid Header Value"),
+                            error_description: Some(err.to_string().into())
+                        })).respond_to(req);
+                    }
+                }
+                resp.map_into_left_body().map_into_left_body()
             }
             Self::Err(code, err) => {
-                (err, code.unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).respond_to(req).into()
+                (err, code.unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).respond_to(req).map_into_right_body().map_into_left_body()
             }
             Self::Error(code, wrapper) => {
-                (wrapper, code.unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).respond_to(req).into()
+                (wrapper, code.unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).respond_to(req).map_into_right_body().map_into_left_body()
             }
         }
     }
 }
 
-pub struct State<'a, T: ?Sized>(pub &'a T);
-impl<'a, T: ?Sized> core::ops::Deref for State<'a, T> {
-    type Target = &'a T;
+pub struct State<T: ?Sized>(pub T);
+impl<T: ?Sized> core::ops::Deref for State<T> {
+    type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.0
+        &self.0
     }
 }
-impl<'a, T: ?Sized> actix_web::FromRequest for State<'a, T> {
+impl<'a, T: Clone + 'static> actix_web::FromRequest for State<T> {
     type Error = actix_web::Error;
     type Future = std::future::Ready<Result<Self, actix_web::Error>>;
 
     #[inline]
     fn from_request(req: &actix_web::HttpRequest, _: &mut actix_web::dev::Payload) -> Self::Future {
         if let Some(st) = req.app_data::<T>() {
-            std::future::ready(Ok(Self(st)))
+            std::future::ready(Ok(Self(st.clone())))
         } else {
             tracing::debug!(
                 "Failed to extract `{}` for `{}` handler. For the Data extractor to work \

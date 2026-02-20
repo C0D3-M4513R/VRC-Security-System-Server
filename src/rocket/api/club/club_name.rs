@@ -2,14 +2,14 @@ use std::borrow::Cow;
 use crate::rocket::{Response, State};
 use crate::rocket::api::club::Permissions;
 use crate::rocket::AskamaWrapper;
-use crate::rocket::auth::discord::{AuthErr, JWT};
+use crate::rocket::auth::discord::JWT;
 
 #[derive(serde_derive::Deserialize)]
-pub struct Name<'r> {
-    name: &'r str,
+pub struct Name {
+    name: String,
 }
 #[actix_web::put("/api/club/<club>/club_name")]
-pub async fn put_club_name<'r>(auth: State<'r, JWT>, club: &'r str, data: actix_web::web::Form<Name<'r>>) -> Response<()> {
+pub async fn put_club_name<'r>(auth: State<JWT>, club: String, data: actix_web::web::Form<Name>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     if data.name.starts_with("!") {
         return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(crate::modals::err::Err {
             error: Cow::Borrowed("The Specified Club-Name starts with !, which isn't allowed!"),
@@ -23,7 +23,7 @@ pub async fn put_club_name<'r>(auth: State<'r, JWT>, club: &'r str, data: actix_
         }));
     }
     
-    match Permissions::require_permission(*auth, club, |v|v.update_club_name).await {
+    match Permissions::require_permission(&*auth, &club, |v|v.update_club_name).await {
         Ok(()) => {}
         Err((code, err)) => return Response::Error(Some(code), err),
     }

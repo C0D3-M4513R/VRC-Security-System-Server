@@ -7,7 +7,7 @@ pub async fn logout() -> actix_web::HttpResponse<actix_web::body::EitherBody<(),
     let mut cookie = actix_web::cookie::Cookie::new(super::DISCORD_TOKEN_COOKIE_NAME, "");
     cookie.set_secure(true);
     cookie.make_removal();
-    let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::TEMPORARY_REDIRECT, ().into());
+    let mut resp = actix_web::HttpResponse::with_body(actix_web::http::StatusCode::TEMPORARY_REDIRECT, actix_web::body::EitherBody::left(()));
     match resp.add_removal_cookie(&cookie) {
         Ok(()) => {},
         Err(e) => {
@@ -17,7 +17,7 @@ pub async fn logout() -> actix_web::HttpResponse<actix_web::body::EitherBody<(),
             }).render()
             .map_or_else(core::convert::identity, core::convert::identity);
             *resp.status_mut() = actix_web::http::StatusCode::INTERNAL_SERVER_ERROR;
-            return resp.set_body(err.into());
+            return resp.set_body(actix_web::body::EitherBody::right(err));
         }
     }
     resp.headers_mut().insert(actix_web::http::header::LOCATION, actix_web::http::header::HeaderValue::from_static("/"));

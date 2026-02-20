@@ -4,7 +4,7 @@ pub struct VRCPermission {
 }
 #[derive(askama::Template)]
 #[template(path = "clubs/vrc-permissions.html")]
-pub struct ClubVRCPermissions<'a> {
-    pub information: super::club_instance::ClubInstance<'a>,
+pub struct ClubVRCPermissions {
+    pub information: super::club_instance::ClubInstance,
     pub permissions: Vec<VRCPermission>,
 }
