@@ -3,7 +3,6 @@ use actix_web::dev::Payload;
 use actix_web::HttpRequest;
 use base64::Engine;
 use crate::Keypair;
-use crate::rocket::auth::discord::AuthErr;
 
 pub mod api;
 pub mod auth;
@@ -132,7 +131,6 @@ impl<'r> actix_web::FromRequest for IfNoneMatch {
 }
 pub enum Response<T> {
     Ok(T),
-    AuthErr(AuthErr),
     Redirect(Option<actix_web::http::StatusCode>, Cow<'static, str>),
     Err(Option<actix_web::http::StatusCode>, Cow<'static, str>),
     Error(Option<actix_web::http::StatusCode>, AskamaWrapper<crate::modals::err::Err<'static>>),
@@ -145,9 +143,6 @@ impl<T:actix_web::Responder> actix_web::Responder for Response<T> {
         match self {
             Self::Ok(v) => {
                 v.respond_to(req).map_into_right_body()
-            }
-            Self::AuthErr(err) => {
-                err.respond_to(req).map_into_right_body().map_into_left_body()
             }
             Self::Redirect(code, location) => {
                 let mut resp = actix_web::HttpResponse::with_body(code.unwrap_or(actix_web::http::StatusCode::TEMPORARY_REDIRECT), ());
