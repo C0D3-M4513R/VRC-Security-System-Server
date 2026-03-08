@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    WITH club_allowed_replace_name AS (\n        SELECT\n            public.club_allowed_replace.club_id,\n            ARRAY_AGG(public.club.\"path-name\") as allowed_replace\n        FROM public.club_allowed_replace\n        INNER JOIN public.club ON public.club.id = public.club_allowed_replace.switch_to_clubid\n        GROUP BY public.club_allowed_replace.club_id\n    )\n    SELECT\n        public.club.\"path-name\" as path_name,\n        public.club.id,\n        public.club.group_id,\n        COALESCE(club_allowed_replace_name.allowed_replace, ARRAY[]::text[]) as allowed_replace,\n        public.club_logo.image as \"club_logo?\",\n        public.club_poster1.image as \"club_poster1?\",\n        public.club_poster2.image as \"club_poster2?\",\n        public.club_poster3.image as \"club_poster3?\"\n    FROM public.club\n    INNER JOIN public.discord_permissions ON (public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0)\n    LEFT JOIN club_allowed_replace_name ON club_allowed_replace_name.club_id = public.club.id\n    LEFT JOIN public.club_logo ON public.club_logo.club_id = public.club.id\n    LEFT JOIN public.club_poster1 ON public.club_poster1.club_id = public.club.id\n    LEFT JOIN public.club_poster2 ON public.club_poster2.club_id = public.club.id\n    LEFT JOIN public.club_poster3 ON public.club_poster3.club_id = public.club.id\n    WHERE\n        public.club.\"path-name\" = $1 AND\n        public.discord_permissions.discord_id = $2 AND\n        public.discord_permissions.submit\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "path_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "group_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "allowed_replace",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "club_logo?",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 5,
+        "name": "club_poster1?",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 6,
+        "name": "club_poster2?",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 7,
+        "name": "club_poster3?",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "142be647ac7b4a7400ac7540ed3be77921183d50c4f2397883bce8869464445a"
+}

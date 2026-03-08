@@ -154,7 +154,7 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
         ,
     };
     let repo = actix_web::web::Data::new(Mutex::new(repo));
-    actix_web::HttpServer::new(move ||{
+    let server = actix_web::HttpServer::new(move ||{
         let app = actix_web::App::new()
             .wrap(actix_web::middleware::Logger::default())
             .wrap(actix_web::middleware::NormalizePath::new(actix_web::middleware::TrailingSlash::MergeOnly))
@@ -209,9 +209,15 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
         };
 
         app
-    })
-        // .bind_uds("server.socket")
-        .bind(std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 8000))
+    });
+
+    #[cfg(feature = "socket")]
+    let server = server.bind_uds("server.sock");
+
+    #[cfg(not(feature = "socket"))]
+    let server = server.bind(std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 8000));
+
+    server
         .expect("expected to be able to start a server")
         .run()
         .await

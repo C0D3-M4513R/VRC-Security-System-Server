@@ -13,6 +13,8 @@ pub struct ClubInfo<'a>{
     name: &'a str,
     clubnames_allowed_to_replace: &'a [String],
     permissions: Vec<Vec<String>>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    group_id: Option<&'a str>
 }
 #[derive(Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct ClubOwner{
@@ -83,6 +85,7 @@ GROUP BY public.club_vrc_permission.permission_level
     SELECT
         public.club."path-name" as path_name,
         public.club.id,
+        public.club.group_id,
         COALESCE(club_allowed_replace_name.allowed_replace, ARRAY[]::text[]) as allowed_replace,
         public.club_logo.image as "club_logo?",
         public.club_poster1.image as "club_poster1?",
@@ -115,6 +118,7 @@ GROUP BY public.club_vrc_permission.permission_level
         };
         let data = ClubInfo{
             name: &res.path_name,
+            group_id: res.group_id.as_ref().map(|v|v.as_str()),
             clubnames_allowed_to_replace: res.allowed_replace.as_ref().map_or(&[], |v|v.as_slice()),
             permissions,
         };

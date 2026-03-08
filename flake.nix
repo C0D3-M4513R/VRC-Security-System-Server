@@ -47,6 +47,10 @@
 					buildInputs = with pkgs; [
 					] ++ commonBuildInputs;
 
+          buildFeatures = [
+          	"socket"
+          ];
+
 					meta = {
 #						description = "";
 #						license = pkgs.lib.licenses.unfree; #TODO: Re-Mark this as unfree, once you can actually use flakes with unfree packages
