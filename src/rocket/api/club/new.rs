@@ -7,6 +7,7 @@ use crate::rocket::auth::discord::JWT;
 #[derive(serde_derive::Deserialize)]
 pub struct Name {
     path_name: String,
+    group_id: Option<String>,
 }
 #[actix_web::post("/api/club")]
 pub async fn put_club<'r>(auth: State<JWT>, data: actix_web::web::Form<Name>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
@@ -41,8 +42,8 @@ pub async fn put_club<'r>(auth: State<JWT>, data: actix_web::web::Form<Name>) ->
     let club = &data.path_name;
     let db = crate::get_db().await;
     let table = match sqlx::query!(
-        "SELECT club_create($1, club_get_new_code(), $2, $3, $4)",
-        auth.get_user_id().cast_signed(), club, &pk, &sk
+        "SELECT club_create($1, club_get_new_code(), $2, $3, $4, $5)",
+        auth.get_user_id().cast_signed(), club, &pk, &sk, data.group_id.as_ref().map(|v|v.as_str()),
     )
         .execute(&db)
         .await

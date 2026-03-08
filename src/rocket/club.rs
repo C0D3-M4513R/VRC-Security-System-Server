@@ -17,7 +17,10 @@ pub async fn get_index() -> Response<actix_web::HttpResponse<core::convert::Infa
 pub async fn get_club<'r>(auth: State<JWT>, keypair: State<Keypair>) -> Response<AskamaWrapper<Clubs>> {
     let db = crate::get_db().await;
     if INITIALIZING.swap(false, core::sync::atomic::Ordering::AcqRel) {
-        match sqlx::query!("SELECT add_initial_club($1, $2, $3)", auth.get_user_id().cast_signed(), &keypair.public, &keypair.secret)
+        match sqlx::query!(
+            r#"SELECT add_initial_club($1, $2, $3, $4)"#,
+            auth.get_user_id().cast_signed(), &keypair.public, &keypair.secret, None::<&str>
+        )
             .execute(&db)
             .await
         {
