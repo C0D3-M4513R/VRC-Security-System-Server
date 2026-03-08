@@ -213,7 +213,7 @@ GROUP BY public.club_vrc_permission.permission_level
     let bytes = bytes;
 
     let repo = (&*repo).clone().lock_owned().await;
-    let redir = format!("/auth/clubs/{club}");
+    let redir = format!("/auth/clubs/{club}/");
     match tokio::task::spawn_blocking(move || {
         if let Some(res) = res {
             crate::git::push::push_files(
