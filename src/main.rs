@@ -5,6 +5,7 @@ use tokio::sync::Mutex;
 mod rocket;
 mod git;
 mod modals;
+mod serialization;
 
 #[derive(Debug, Clone)]
 pub struct Limits {

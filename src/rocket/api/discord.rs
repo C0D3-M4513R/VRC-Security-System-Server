@@ -3,10 +3,12 @@ use crate::rocket::api::club::Permissions;
 use crate::rocket::auth::discord::JWT;
 use crate::rocket::{AskamaWrapper, Response, State};
 
+#[serde_with::serde_as]
 #[derive(serde_derive::Deserialize)]
 pub struct DiscordInfo {
     discord_id: u64,
     username: String,
+    #[serde_as(as = "::serde_with::NoneAsEmptyString")]
     discriminator: Option<i16>,
 }
 #[actix_web::post("/api/discord/info/add")]
@@ -33,7 +35,7 @@ pub async fn put_discord_info<'r>(auth: State<JWT>, data: actix_web::web::Form<D
             }))
         }
     };
-    let redir = Response::Redirect(None, "/clubs/".into());
+    let redir = Response::Redirect(None, "/auth/clubs".into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

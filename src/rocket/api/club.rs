@@ -13,21 +13,59 @@ pub mod new;
 
 pub(crate) const CLUB_OWNERS:&str = "!CLUB-OWNERS";
 
+#[serde_with::serde_as]
 #[derive(Debug, serde_derive::Deserialize, serde_derive::Serialize)]
+#[serde(default)]
 pub struct Permissions{
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub add_discord_user: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub remove_discord_user: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub update_club_name: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub add_allowed_code_replacements: bool,
+    #[serde_as(as = "::serde_with::NoneAsEmptyString")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub add_level: Option<i16>,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub update_logo: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub update_poster1: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub update_poster2: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub update_poster3: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub remove_allowed_code_replacements: bool,
+    #[serde_as(as = "::serde_with::NoneAsEmptyString")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub remove_level: Option<i16>,
+    #[serde_as(as = "::serde_with::NoneAsEmptyString")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub manage_permissions: Option<i32>,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub submit: bool,
+}
+
+impl Default for Permissions {
+    fn default() -> Self {
+        Self {
+            add_discord_user: false,
+            remove_discord_user: false,
+            update_club_name: false,
+            add_allowed_code_replacements: false,
+            add_level: None,
+            update_logo: false,
+            update_poster1: false,
+            update_poster2: false,
+            update_poster3: false,
+            remove_allowed_code_replacements: false,
+            remove_level: None,
+            manage_permissions: None,
+            submit: false,
+        }
+    }
 }
 macro_rules! build_permission_from_res {
     ($name:ident) => {

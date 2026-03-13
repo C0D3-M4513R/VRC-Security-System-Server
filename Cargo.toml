@@ -22,6 +22,7 @@ sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio"] }
 serde = "1.0.228"
 serde_derive = "1.0.228"
 serde_json = "1.0.149"
+serde_with = "3.17.0"
 base64 = "0.22.1"
 
 sphincsplus = { version = "0.1.0", features = ["simple", "shake", "256f"] }
