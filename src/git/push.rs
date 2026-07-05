@@ -44,7 +44,7 @@ pub fn add_files_top(
                 return Err(Cow::Owned(format!("Could not convert file content to oid for file {name}: {err}")));
             }
         };
-        let _ = match builder.insert(name, oid, 0o100644) {
+        let _ = match builder.insert(name, oid, FILEMODE_BLOB) {
             Ok(v) => v,
             Err(err) => {
                 tracing::warn!("Could not insert blob-oid to club tree-builder for file {name}: {err}");
@@ -63,102 +63,88 @@ pub fn add_files_top(
 
     Ok(oid)
 }
+pub fn change_folder<'a, T>(
+    repo: &git2::Repository,
+    builder: &mut git2::TreeBuilder,
+    name: &str,
+    create_folder: bool,
+    filemode: i32,
+    func: impl FnOnce(&git2::Repository, &mut git2::TreeBuilder<'_>) -> Result<T, Cow<'static, str>>,
+) -> Result<T, Cow<'static, str>> {
+    let mut inner_builder = match match builder.get(name) {
+        Ok(Some(v)) => match match v.to_object(repo) {
+            Ok(v) => v.peel_to_tree(),
+            Err(err) => {
+                tracing::warn!("Failed to convert Folder of {name} to git object: {err}");
+                return Err(Cow::Owned(format!("Failed to convert Folder of {name} to git object: {err}")));
+            }
+        }{
+            Ok(v) => repo.treebuilder(Some(&v)),
+            Err(err) => {
+                tracing::warn!("Failed to convert the object of the Folder of {name} to a git tree: {err}");
+                return Err(Cow::Owned(format!("Failed to convert the object of the Folder of {name} to a git tree: {err}")));
+            }
+        },
+        Ok(None) => if create_folder {
+            repo.treebuilder(None)
+        } else {
+            tracing::warn!("{name} does not exist");
+            return Err(Cow::Owned(format!("{name} does not exist")));
+        },
+        Err(err) => {
+            tracing::warn!("Failed to query for {name} existence: {err}");
+            return Err(Cow::Owned(format!("Failed to query for {name} existence: {err}")));
+        }
+    }{
+        Ok(v) => v,
+        Err(err) => {
+            tracing::warn!("Failed to create a TreeBuilder for {name}: {err}");
+            return Err(Cow::Owned(format!("Failed to create a TreeBuilder for {name}: {err}")));
+        }
+    };
+
+    let out = match func(&repo, &mut inner_builder){
+        Ok(v) => v,
+        Err(err) => {
+            tracing::warn!("Failed to populate subtree of {name}: {err}");
+            return Err(Cow::Owned(format!("Failed to populate subtree of {name}: {err}")));
+        }
+    };
+
+    let inner_builder = match inner_builder.write() {
+        Ok(v) => v,
+        Err(err) => {
+            tracing::warn!("Failed to write new tree for {name}: {err}");
+            return Err(Cow::Owned(format!("Failed to write new tree for {name}: {err}")));
+        }
+    };
+
+    match builder.insert(name, inner_builder, filemode){
+        Ok(_) => {},
+        Err(err) => {
+            tracing::warn!("Failed to update the oid for {name}: {err}");
+            return Err(Cow::Owned(format!("Failed to update the oid for {name}: {err}")));
+        }
+    }
+
+    Ok(out)
+}
+
+const FILEMODE_TREE:i32 = 0o040000;
+const FILEMODE_BLOB:i32 = 0o100644;
+
 pub fn add_files(
     files: Vec<(&[u8], &str)>,
     club_name: &str,
 ) -> impl FnOnce(&git2::Repository, &mut git2::TreeBuilder<'_>) -> Result<(), Cow<'static, str>> {
     move |repo, builder|{
         const CODES_NAME:&str = "Codes";
-        let codes_oid = {
-            let codes = match builder.get(CODES_NAME) {
-                Ok(Some(v)) => v,
-                Ok(None) => {
-                    tracing::warn!("The Codes Tree was empty");
-                    return Err(Cow::Borrowed("The Codes Tree was empty"));
-                }
-                Err(err) => {
-                    tracing::warn!("Could not get Codes TreeEntry: {err}");
-                    return Err(Cow::Owned(format!("Could not get Codes TreeEntry: {err}")));
-                },
-            };
-            let codes = match codes.to_object(&repo) {
-                Ok(c) => c,
-                Err(err) => {
-                    tracing::warn!("Could not get Object of Codes Tree: {err}");
-                    return Err(Cow::Owned(format!("Could not get Object of Codes Tree: {err}")));
-                },
-            };
-            let codes = match codes.peel_to_tree() {
-                Ok(c) => c,
-                Err(err) => {
-                    tracing::warn!("Could not get Codes Tree: {err}");
-                    return Err(Cow::Owned(format!("Could not get Codes Tree: {err}")));
-                },
-            };
-            let mut codes = match repo.treebuilder(Some(&codes))  {
-                Ok(c) => c,
-                Err(err) => {
-                    tracing::warn!("Could not get Codes TreeBuilder: {err}");
-                    return Err(Cow::Owned(format!("Could not get Codes TreeBuilder: {err}")));
-                },
-            };
-            let club_oid = {
-                let club = match codes.get(club_name) {
-                    Ok(Some(v)) => v,
-                    Ok(None) => {
-                        tracing::warn!("The Club Tree was empty");
-                        return Err(Cow::Borrowed("The Club Tree was empty"));
-                    }
-                    Err(err) => {
-                        tracing::warn!("Could not get Club Tree: {err}");
-                        return Err(Cow::Owned(format!("Could not get Club Tree: {err}")));
-                    },
-                };
-                let club = match club.to_object(&repo) {
-                    Ok(c) => c,
-                    Err(err) => {
-                        tracing::warn!("Could not get Object of Club Tree: {err}");
-                        return Err(Cow::Owned(format!("Could not get Object of Club Tree: {err}")));
-                    },
-                };
-                let club = match club.peel_to_tree() {
-                    Ok(c) => c,
-                    Err(err) => {
-                        tracing::warn!("Could not get Club Tree: {err}");
-                        return Err(Cow::Owned(format!("Could not get Club Tree: {err}")));
-                    },
-                };
-                let mut club = match repo.treebuilder(Some(&club)) {
-                    Ok(c) => c,
-                    Err(err) => {
-                        tracing::warn!("Could not get Club TreeBuilder: {err}");
-                        return Err(Cow::Owned(format!("Could not get Club TreeBuilder: {err}")));
-                    },
-                };
-                add_files_top(files, repo, &mut club)?
-            };
-            let _ = match codes.insert(club_name, club_oid, 0o040000) {
-                Ok(v) => v,
-                Err(err) => {
-                    tracing::warn!("Could not insert tree-oid to codes tree-builder: {err}");
-                    return Err(Cow::Owned(format!("Could not insert tree-oid to codes tree-builder: {err}")));
-                }
-            };
-            match codes.write() {
-                Ok(v) => v,
-                Err(err) => {
-                    tracing::warn!("Could not write Codes-Tree to repo: {err}");
-                    return Err(Cow::Owned(format!("Could not write Codes-Tree to repo: {err}")));
-                }
-            }
-        };
-        let _ = match builder.insert(CODES_NAME, codes_oid, 0o040000) {
-            Ok(v) => v,
-            Err(err) => {
-                tracing::warn!("Could not insert blob-oid to root tree-builder: {err}");
-                return Err(Cow::Owned(format!("Could not insert blob-oid to root tree-builder: {err}")));
-            }
-        };
+        change_folder(repo, builder, CODES_NAME, true, FILEMODE_TREE, |repo, builder|{
+           change_folder(repo, builder, club_name, true, FILEMODE_TREE, |repo, builder|{
+               add_files_top(files, repo, builder)
+           })
+        })?;
+
         Ok(())
     }
 }
