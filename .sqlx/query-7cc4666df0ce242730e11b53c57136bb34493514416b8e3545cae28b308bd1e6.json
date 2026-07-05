@@ -6,77 +6,167 @@
       {
         "ordinal": 0,
         "name": "club_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "club_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "discord_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "discord_id"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "add_discord_user",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "add_discord_user"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "remove_discord_user",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "remove_discord_user"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "update_club_name",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_club_name"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "add_allowed_code_replacements",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "add_allowed_code_replacements"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "add_level",
-        "type_info": "Int2"
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "add_level"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "update_logo",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_logo"
+          }
+        }
       },
       {
         "ordinal": 8,
         "name": "update_poster1",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_poster1"
+          }
+        }
       },
       {
         "ordinal": 9,
         "name": "update_poster2",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_poster2"
+          }
+        }
       },
       {
         "ordinal": 10,
         "name": "update_poster3",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_poster3"
+          }
+        }
       },
       {
         "ordinal": 11,
         "name": "remove_allowed_code_replacements",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "remove_allowed_code_replacements"
+          }
+        }
       },
       {
         "ordinal": 12,
         "name": "remove_level",
-        "type_info": "Int2"
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "remove_level"
+          }
+        }
       },
       {
         "ordinal": 13,
         "name": "manage_permissions",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "manage_permissions"
+          }
+        }
       },
       {
         "ordinal": 14,
         "name": "submit",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "submit"
+          }
+        }
       }
     ],
     "parameters": {

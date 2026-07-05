@@ -39,7 +39,7 @@
     </table>
     <h2>Unity Code-Saver Editor/Inspector String:</h2>
     <p>
-{% for club in clubs %}
+{% for club in clubs_id %}
 {% if club.code == 0 %}{% continue %}{% endif %}
 {{club.code}},{{club.path_name}}<br>
 {% endfor %}
@@ -48,7 +48,7 @@
 
     <h1>Clubs</h1>
     <ul>
-        {% for club in clubs %}
+        {% for club in clubs_name %}
             <li><a href="clubs/{{club.path_name}}/">{{club.name}}</a></li>
         {% endfor %}
     </ul>

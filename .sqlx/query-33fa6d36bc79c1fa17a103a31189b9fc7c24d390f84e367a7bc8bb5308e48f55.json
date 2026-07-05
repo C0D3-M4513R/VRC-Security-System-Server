@@ -6,12 +6,19 @@
       {
         "ordinal": 0,
         "name": "permission_level",
-        "type_info": "Int2"
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "club_vrc_permission",
+            "name": "permission_level"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "permissions",
-        "type_info": "TextArray"
+        "type_info": "TextArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {

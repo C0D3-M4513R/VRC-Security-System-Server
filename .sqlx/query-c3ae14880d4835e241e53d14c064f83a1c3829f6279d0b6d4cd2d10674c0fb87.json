@@ -6,12 +6,24 @@
       {
         "ordinal": 0,
         "name": "image",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "club_logo",
+            "name": "image"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "digest",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "club_logo",
+            "name": "digest"
+          }
+        }
       }
     ],
     "parameters": {

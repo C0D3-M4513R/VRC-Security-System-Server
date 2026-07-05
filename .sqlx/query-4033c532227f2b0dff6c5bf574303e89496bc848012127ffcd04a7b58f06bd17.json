@@ -6,92 +6,200 @@
       {
         "ordinal": 0,
         "name": "path_name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "path-name"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "name"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "code",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "code"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "club_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "club_id"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "discord_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "discord_id"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "add_discord_user",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "add_discord_user"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "remove_discord_user",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "remove_discord_user"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "update_club_name",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_club_name"
+          }
+        }
       },
       {
         "ordinal": 8,
         "name": "add_allowed_code_replacements",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "add_allowed_code_replacements"
+          }
+        }
       },
       {
         "ordinal": 9,
         "name": "add_level",
-        "type_info": "Int2"
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "add_level"
+          }
+        }
       },
       {
         "ordinal": 10,
         "name": "update_logo",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_logo"
+          }
+        }
       },
       {
         "ordinal": 11,
         "name": "update_poster1",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_poster1"
+          }
+        }
       },
       {
         "ordinal": 12,
         "name": "update_poster2",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_poster2"
+          }
+        }
       },
       {
         "ordinal": 13,
         "name": "update_poster3",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_poster3"
+          }
+        }
       },
       {
         "ordinal": 14,
         "name": "remove_allowed_code_replacements",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "remove_allowed_code_replacements"
+          }
+        }
       },
       {
         "ordinal": 15,
         "name": "remove_level",
-        "type_info": "Int2"
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "remove_level"
+          }
+        }
       },
       {
         "ordinal": 16,
         "name": "manage_permissions",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "manage_permissions"
+          }
+        }
       },
       {
         "ordinal": 17,
         "name": "submit",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "submit"
+          }
+        }
       }
     ],
     "parameters": {

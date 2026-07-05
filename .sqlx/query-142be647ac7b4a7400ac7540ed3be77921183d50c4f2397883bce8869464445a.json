@@ -6,42 +6,85 @@
       {
         "ordinal": 0,
         "name": "path_name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "path-name"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "id"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "group_id",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "group_id"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "allowed_replace",
-        "type_info": "TextArray"
+        "type_info": "TextArray",
+        "origin": "Expression"
       },
       {
         "ordinal": 4,
         "name": "club_logo?",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "club_logo",
+            "name": "image"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "club_poster1?",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "club_poster1",
+            "name": "image"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "club_poster2?",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "club_poster2",
+            "name": "image"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "club_poster3?",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "club_poster3",
+            "name": "image"
+          }
+        }
       }
     ],
     "parameters": {
@@ -55,10 +98,10 @@
       false,
       true,
       null,
-      false,
-      false,
-      false,
-      false
+      true,
+      true,
+      true,
+      true
     ]
   },
   "hash": "142be647ac7b4a7400ac7540ed3be77921183d50c4f2397883bce8869464445a"

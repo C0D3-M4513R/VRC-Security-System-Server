@@ -3,6 +3,7 @@ pub mod vrchat_permissions;
 pub mod manage_permissions;
 
 use std::borrow::Cow;
+use std::sync::Arc;
 use crate::{Keypair, INITIALIZING};
 use crate::rocket::{AskamaWrapper, Response, State};
 use crate::rocket::auth::discord::JWT;
@@ -43,7 +44,7 @@ pub async fn get_club<'r>(auth: State<JWT>, keypair: State<Keypair>) -> Response
         FROM club
             INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0
             WHERE public.discord_permissions.discord_id = $1
-            ORDER BY name
+            ORDER BY id
     "#, auth.get_user_id().cast_signed()).fetch_all(&db)
         .await {
         Ok(res) => res,
@@ -67,8 +68,8 @@ pub async fn get_club<'r>(auth: State<JWT>, keypair: State<Keypair>) -> Response
         })),
     };
 
-    Response::Ok(AskamaWrapper(Clubs{
-        clubs: res.into_iter().map(|c| Club{path_name: c.path_name, code: c.code.cast_unsigned(), name: c.name}).collect(),
+    Response::Ok(AskamaWrapper(Clubs::new(
+        res.into_iter().map(|c| Club{path_name: Arc::from(c.path_name), code: c.code.cast_unsigned(), name: Arc::from(c.name)}).collect(),
         permission
-    }))
+    )))
 }

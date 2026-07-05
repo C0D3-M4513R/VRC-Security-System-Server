@@ -3,6 +3,7 @@ name = "NeoLuma-Site"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
+rust-version = "1.94.0"
 
 [dependencies]
 dotenvy = "0.15.7"
@@ -12,13 +13,13 @@ anyhow = "1.0.100"
 
 tokio = { version = "1.49.0", features = ["process", "io-util", "rt-multi-thread"] }
 actix-web = { version = "4.12.1", features = ["openssl", "secure-cookies"]}
-actix-multipart = { version = "0.7.2" }
-askama = "0.15.4"
+actix-multipart = { version = "0.8" }
+askama = "0.16"
 
 serenity = { version = "0.12.5", default-features = false, features = ["http", "native_tls_backend", "builder"] }
 reqwest = { version = "0.13.1", features = ["form"] }
 
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio"] }
+sqlx = { version = "0.9", features = ["postgres", "runtime-tokio"] }
 serde = "1.0.228"
 serde_derive = "1.0.228"
 serde_json = "1.0.149"
@@ -28,7 +29,7 @@ base64 = "0.22.1"
 sphincsplus = { version = "0.1.0", features = ["simple", "shake", "256f"] }
 
 image = "0.25.9"
-git2 = "0.20.4"
+git2 = "0.21"
 
 [features]
 restrict_image_upload_dimensions = []
