@@ -177,6 +177,7 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
         }
         register_routes!(app,
             rocket::auth::discord::new::new_oauth,
+            rocket::auth::discord::new::new_oauth_prompt,
             rocket::auth::discord::oauth::oauth,
             rocket::auth::discord::logout::logout,
             rocket::get_favicon,
