@@ -37,8 +37,8 @@
   <p>Club Code: {{code}}</p>
   <form method="post" action="../../api/club/{{path_name}}/club_name">
     <input name="_method" type="hidden" value="put"/>
-    <label>Club-Name: <input name="name" type="text" value="{{name}}" {% if !path_name.starts_with("!") %}pattern='![ -~]*'{% endif %} {% if !permissions.update_club_name %} disabled {% endif %}></label>
-    <input name="submit" type="submit" value="Change Club Name">
+    <label>Club-Name: <input name="name" type="text" value="{{name}}" {% if !path_name.starts_with("!") %}pattern='(?!!)[ -~]*' {% if !permissions.update_club_name %} disabled {% endif %}{% else %} disabled{% endif %}></label>
+    <input name="submit" type="submit" value="Change Club Name" {% if !permissions.update_club_name || path_name.starts_with("!") %}disabled{% endif %} >
   </form>
   <table class="image-display-list">
     <tr>
