@@ -213,17 +213,49 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
         app
     });
 
-    #[cfg(feature = "socket")]
-    let server = server.bind_uds("server.sock");
 
-    #[cfg(not(feature = "socket"))]
-    let server = server.bind(std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 8000));
+    #[cfg(all(unix, feature = "socket"))]
+    let server = {
+        #[cfg(feature = "systemd-socket")]
+        let server = {
+            use anyhow::Context;
+            let mut server = server;
+            match systemd::daemon::listen_fds(false) {
+                Err(err) => {
+                    tracing::error!("Failed to get info for already bound systemd socket. Falling back to manually allocated socket: {err}");
+                    server = server.bind_uds("server.sock")?
+                },
+                Ok(v) => {
+                    let mut has_socket = false;
+                    for (i, fd) in v.iter().enumerate() {
+                        //TODO: check if the fd points to a stream socket and if it's listening?
+                        //  All previous attempts to check this through `systemd::daemon::is_socket_inet` failed though.
+                        has_socket = true;
+                        let listener = unsafe {
+                            use std::os::fd::FromRawFd;
+                            std::os::unix::net::UnixListener::from_raw_fd(fd)
+                        };
+                        server = server.listen_uds(listener).with_context(||format!("Failed to listen to fd number {i}"))?;
+                    }
+                    if !has_socket {
+                        tracing::error!("No already bound systemd socket were passed. Falling back to manually allocated socket");
+                        server = server.bind_uds("server.sock")?;
+                    }
+                }
+            }
+            server
+        };
+        #[cfg(not(feature= "systemd-socket"))]
+        let server = server.bind_uds("server.sock")?;
+        server
+    };
+
+    #[cfg(any(not(unix), not(feature = "socket")))]
+    let server = server.bind((core::net::IpAddr::V4(core::net::Ipv4Addr::LOCALHOST), 8080))?;
 
     server
-        .expect("expected to be able to start a server")
         .run()
-        .await
-        .expect("Expected server run to exit successfully");
+        .await?;
 
     Ok(())
 }

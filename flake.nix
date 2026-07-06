@@ -22,6 +22,8 @@
           pkg-config
           openssl.dev
           libclang.lib
+					systemd
+					zstd
        ];
         runtimeDependencies = with pkgs; [
         ];
@@ -41,6 +43,7 @@
 					];
 
 					LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+					ZSTD_SYS_USE_PKG_CONFIG = true;
 
 					runtimeDependencies = runtimeDependencies;
 
@@ -49,6 +52,7 @@
 
           buildFeatures = [
           	"socket"
+          	"systemd-socket"
           ];
 
 					meta = {
@@ -85,6 +89,9 @@
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
           LD_LIBRARY_PATH = lib.makeLibraryPath commonBuildInputs;
           GIT_EXTERNAL_DIFF = "${difftastic}/bin/difft";
+					RUST_BACKTRACE= "1";
+					RUST_LIB_BACKTRACE = "1";
+					ZSTD_SYS_USE_PKG_CONFIG = true;
         };
       });
 }
