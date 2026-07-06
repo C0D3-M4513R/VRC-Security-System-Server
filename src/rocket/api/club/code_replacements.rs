@@ -30,7 +30,7 @@ pub async fn put_club_replacement<'r>(auth: State<JWT>, path: actix_web::web::Pa
             }))
         }
     };
-    let redir = Response::Redirect(None, format!("/auth/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}/").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
@@ -67,7 +67,7 @@ pub async fn delete_club_replacement<'r>(auth: State<JWT>, club: String, target_
         }
     };
 
-    let redir = Response::Redirect(None, format!("/auth/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}/").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,

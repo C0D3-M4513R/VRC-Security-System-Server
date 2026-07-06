@@ -46,7 +46,7 @@ pub async fn put_club_name<'r>(auth: State<JWT>, path: actix_web::web::Path<Stri
         }
     };
 
-    let redir = Response::Redirect(None, format!("/auth/clubs/{club}").into());
+    let redir = Response::Redirect(None, format!("/auth/clubs/{club}/").into());
     match table.rows_affected() {
         0 => {},
         1 => return redir,
