@@ -29,7 +29,7 @@ base64 = "0.22.1"
 sphincsplus = { version = "0.1.0", features = ["simple", "shake", "256f"] }
 
 image = "0.25.9"
-git2 = "0.21"
+git2 = { version = "0.21", features = ["ssh"] }
 
 
 systemd = { version = "0.10.1", optional = true }
