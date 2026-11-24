@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="color-scheme" content="light dark">
-    <title>Club Dashboard - {{name}}</title>
+    <title>Club Dashboard - {{info.name}}</title>
   <style>
     .image-display {
       min-width: 150px;
@@ -22,28 +22,28 @@
   </style>
 </head>
 <body>
-  <h1>Club {{name}}</h1>
-  {% call navbar::header(self) %}{% endcall %}
+  <h1>Club {{info.name}}</h1>
+  {% call navbar::header(info) %}{% endcall %}
   <br>
 
   <h1>Important</h1>
   <p>Any changes you make won't instantly be reflected in the club!</p>
   <p>For your changes to be reflected in the club, you need to request an update of your Club-Information, by pressing the button below!</p>
-  <p>After pressing a button a new Pull-Request will be opened up <a href="{{limits.git_repo_visit_url}}">here</a>.</p>
-  <form method="post" action="../../api/club/{{path_name}}/publish">
-    <input type="submit" value="Request a Club-Update with the saved information" {% if !permissions.submit %} disabled {% endif %}>
+  <p>After pressing a button a new Pull-Request will be opened up <a href="{{info.limits.git_repo_visit_url}}">here</a>.</p>
+  <form method="post" action="../../api/club/{{info.path_name}}/publish">
+    <input type="submit" value="Request a Club-Update with the saved information" {% if !info.permissions.submit %} disabled {% endif %}>
   </form><br><br>
   <h1>Club Info</h1>
   <p>Club Code: {{code}}</p>
-  <form method="post" action="../../api/club/{{path_name}}/club_name">
+  <form method="post" action="../../api/club/{{info.path_name}}/club_name">
     <input name="_method" type="hidden" value="put"/>
-    <label>Club-Name: <input name="name" type="text" value="{{name}}" {% if !path_name.starts_with("!") %}pattern='(?!!)[ -~]*' {% if !permissions.update_club_name %} disabled {% endif %}{% else %} disabled{% endif %}></label>
-    <input name="submit" type="submit" value="Change Club Name" {% if !permissions.update_club_name || path_name.starts_with("!") %}disabled{% endif %} >
+    <label>Club-Name: <input name="name" type="text" value="{{info.name}}" {% if !info.path_name.starts_with("!") %}pattern='(?!!)[ -~]*' {% if !info.permissions.update_club_name %} disabled {% endif %}{% else %} disabled{% endif %}></label>
+    <input name="submit" type="submit" value="Change Club Name" {% if !info.permissions.update_club_name || info.path_name.starts_with("!") %}disabled{% endif %} >
   </form>
   <br>
-  {% if permissions.club_path == "!CLUB-OWNERS" && permissions.manage_permissions.is_some() %}
+  {% if info.permissions.club_path == "!CLUB-OWNERS" && info.permissions.manage_permissions.is_some() %}
   <h2>Custom JSON</h2>
-  <form method="post" action="../../api/club/{{path_name}}/custom_json">
+  <form method="post" action="../../api/club/{{info.path_name}}/custom_json">
     <input name="_method" type="hidden" value="put"/>
     <textarea name="custom_json" rows="12" cols="80">{% if let Some(v) = custom_json %}{{ v }}{% endif %}</textarea><br>
     <input type="submit" value="Save Custom JSON">
@@ -54,9 +54,9 @@
     <tr>
       <td class="image-display">
         <p>Logo:</p>
-        <img src="../../api/club/{{path_name}}/image/Logo.png" alt="Logo of Club {{name}}"/>
-        {% if permissions.update_logo %}
-        <form method="post" action="../../api/club/{{path_name}}/image/Logo.png/change" enctype="multipart/form-data">
+        <img src="../../api/club/{{info.path_name}}/image/Logo.png" alt="Logo of Club {{info.name}}"/>
+        {% if info.permissions.update_logo %}
+        <form method="post" action="../../api/club/{{info.path_name}}/image/Logo.png/change" enctype="multipart/form-data">
           <input type="file" name="file" accept="image/*" required/><br>
           <input type="submit" value="Upload new Image"/>
         </form>
@@ -64,9 +64,9 @@
       </td>
       <td class="image-display">
         <p>Poster1:</p>
-        <img src="../../api/club/{{path_name}}/image/Poster1.png" alt="Poster1 of Club {{name}}"/>
-        {% if permissions.update_poster1 %}
-        <form method="post" action="../../api/club/{{path_name}}/image/Poster1.png/change" enctype="multipart/form-data">
+        <img src="../../api/club/{{info.path_name}}/image/Poster1.png" alt="Poster1 of Club {{info.name}}"/>
+        {% if info.permissions.update_poster1 %}
+        <form method="post" action="../../api/club/{{info.path_name}}/image/Poster1.png/change" enctype="multipart/form-data">
           <input type="file" name="file" accept="image/*" required/><br>
           <input type="submit" value="Upload new Image"/>
         </form>
@@ -74,9 +74,9 @@
       </td>
       <td class="image-display">
         <p>Poster2:</p>
-        <img src="../../api/club/{{path_name}}/image/Poster2.png" alt="Poster2 of Club {{name}}"/>
-        {% if permissions.update_poster2 %}
-        <form method="post" action="../../api/club/{{path_name}}/image/Poster2.png/change" enctype="multipart/form-data">
+        <img src="../../api/club/{{info.path_name}}/image/Poster2.png" alt="Poster2 of Club {{info.name}}"/>
+        {% if info.permissions.update_poster2 %}
+        <form method="post" action="../../api/club/{{info.path_name}}/image/Poster2.png/change" enctype="multipart/form-data">
           <input type="file" name="file" accept="image/*" required/><br>
           <input type="submit" value="Upload new Image"/>
         </form>
@@ -84,9 +84,9 @@
       </td>
       <td class="image-display">
         <p>Poster3:</p>
-        <img src="../../api/club/{{path_name}}/image/Poster3.png" alt="Poster3 of Club {{name}}"/>
-        {% if permissions.update_poster3 %}
-        <form method="post" action="../../api/club/{{path_name}}/image/Poster3.png/change" enctype="multipart/form-data">
+        <img src="../../api/club/{{info.path_name}}/image/Poster3.png" alt="Poster3 of Club {{info.name}}"/>
+        {% if info.permissions.update_poster3 %}
+        <form method="post" action="../../api/club/{{info.path_name}}/image/Poster3.png/change" enctype="multipart/form-data">
           <input type="file" name="file" accept="image/*" required/><br>
           <input type="submit" value="Upload new Image"/>
         </form>

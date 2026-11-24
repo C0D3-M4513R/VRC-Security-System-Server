@@ -56,11 +56,13 @@ pub async fn get_club_instance<'r>(auth: State<JWT>, limits: State<Limits>, path
     };
 
     Response::Ok(AskamaWrapper(ClubInstance{
-        name: res.name,
+        info: crate::modals::club_instance::ClubInfo{
+            name: res.name,
+            path_name: res.path_name,
+            permissions: perms,
+            limits: limits.clone(),
+        },
         code: res.code,
-        path_name: res.path_name,
-        permissions: perms,
-        limits: limits.clone(),
         custom_json,
     }))
 }

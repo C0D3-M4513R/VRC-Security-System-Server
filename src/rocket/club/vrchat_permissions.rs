@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use crate::Limits;
-use crate::modals::club_instance::ClubInstance;
 use crate::modals::err::Err;
 use crate::modals::club_vrchat_permissions::{*};
 use crate::rocket::api::club::build_permission_from_res;
@@ -16,7 +15,6 @@ pub async fn get_club_vrc_names<'r>(auth: State<JWT>, limits: State<Limits>, pat
             public.club."path-name" as path_name,
             public.club.name as name,
             public.club.id as actual_club_id,
-            public.club.code as code,
             public.discord_permissions.*,
             permission_club."path-name" as "club_path"
         FROM club
@@ -65,13 +63,11 @@ pub async fn get_club_vrc_names<'r>(auth: State<JWT>, limits: State<Limits>, pat
     let perms = build_permission_from_res!(res);
 
     Response::Ok(AskamaWrapper(ClubVRCPermissions{
-        information: ClubInstance {
+        information: crate::modals::club_instance::ClubInfo {
             name: res.name,
-            code: res.code,
             path_name: res.path_name,
             permissions: perms,
             limits: limits.clone(),
-            custom_json: None,
         },
         permissions: vrc_perms.into_iter().map(|v|VRCPermission{ vrc_name: v.vrc_name, permission_level: v.permission_level }).collect(),
     }))
