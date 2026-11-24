@@ -19,6 +19,7 @@
 {% if information.permissions.add_discord_user %}
 <form method="post" action="../../api/club/{{information.path_name}}/manage_permissions">
     <input type="hidden" name="_method" value="PUT">
+    <input type="hidden" name="club_path" value="{{information.path_name}}">
     <label>Discord Id:<input type="text" name="target_id" pattern="[0-9]+" required></label>
     <input type="submit" value="Add Permission">
 </form>
@@ -40,6 +41,7 @@
         <td>
             <form method="post" action="../../api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}/change">
                 <input type="hidden" name="_method" value="PUT">
+                <input type="hidden" name="club_path" value="{{information.path_name}}">
                 <label>Allowed to Add Discord Users (of higher Manage Permission Level):<input type="checkbox" name="add_discord_user" {% if permission.permission.add_discord_user %}checked{% endif %} {% if !information.permissions.add_discord_user %}disabled{% endif %}></label><br>
                 <label>Allowed to Remove Discord Users (of higher Manage Permission Level):<input type="checkbox" name="remove_discord_user" {% if permission.permission.remove_discord_user %}checked{% endif %} {% if !information.permissions.remove_discord_user %}disabled{% endif %}></label><br><br>
                 <label>Allowed to Update Club Name:<input type="checkbox" name="update_club_name" {% if permission.permission.update_club_name %}checked{% endif %} {% if !information.permissions.update_club_name %}disabled{% endif %}></label><br><br>
@@ -109,6 +111,7 @@
             </form>
             <form method="post" action="../../api/club/{{information.path_name}}/manage_permissions/{{permission.discord_id}}/delete">
                 <input type="hidden" name="_method" value="DELETE">
+                <input type="hidden" name="club_path" value="{{information.path_name}}">
                 <input type="submit" value="Remove User"
                     {% match (permission.permission.manage_permissions,information.permissions.manage_permissions) %}
                         {% when (_, None) %} disabled

@@ -1,7 +1,7 @@
 use crate::rocket::{Response, State};
 
 const BASE_URI: &str = "https://discord.com/oauth2/authorize?";
-const SCOPES: &'static str = "identify";
+const SCOPES: &'static str = "identify+role_connections.write";
 #[actix_web::get("/api/auth/discord/new_oauth")]
 pub async fn new_oauth<'r>(discord: State<super::Discord>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
     let token = "state";

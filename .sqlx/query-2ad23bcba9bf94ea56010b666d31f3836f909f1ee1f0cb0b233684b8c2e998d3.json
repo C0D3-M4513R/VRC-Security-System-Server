@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE club SET custom_json = $1 WHERE \"path-name\" = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2ad23bcba9bf94ea56010b666d31f3836f909f1ee1f0cb0b233684b8c2e998d3"
+}

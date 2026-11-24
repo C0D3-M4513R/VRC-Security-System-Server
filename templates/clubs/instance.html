@@ -33,13 +33,23 @@
   <form method="post" action="../../api/club/{{path_name}}/publish">
     <input type="submit" value="Request a Club-Update with the saved information" {% if !permissions.submit %} disabled {% endif %}>
   </form><br><br>
-
+  <h1>Club Info</h1>
   <p>Club Code: {{code}}</p>
   <form method="post" action="../../api/club/{{path_name}}/club_name">
     <input name="_method" type="hidden" value="put"/>
     <label>Club-Name: <input name="name" type="text" value="{{name}}" {% if !path_name.starts_with("!") %}pattern='(?!!)[ -~]*' {% if !permissions.update_club_name %} disabled {% endif %}{% else %} disabled{% endif %}></label>
     <input name="submit" type="submit" value="Change Club Name" {% if !permissions.update_club_name || path_name.starts_with("!") %}disabled{% endif %} >
   </form>
+  <br>
+  {% if permissions.club_path == "!CLUB-OWNERS" && permissions.manage_permissions.is_some() %}
+  <h2>Custom JSON</h2>
+  <form method="post" action="../../api/club/{{path_name}}/custom_json">
+    <input name="_method" type="hidden" value="put"/>
+    <textarea name="custom_json" rows="12" cols="80">{% if let Some(v) = custom_json %}{{ v }}{% endif %}</textarea><br>
+    <input type="submit" value="Save Custom JSON">
+  </form>
+  {% endif %}
+  <h2>Club Images</h2>
   <table class="image-display-list">
     <tr>
       <td class="image-display">

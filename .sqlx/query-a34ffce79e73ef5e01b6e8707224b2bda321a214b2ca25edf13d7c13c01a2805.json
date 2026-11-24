@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            public.discord_permissions.*\n        FROM public.discord_permissions\n        WHERE public.discord_permissions.discord_id = $1 AND public.discord_permissions.club_id = 0\n    ",
+  "query": "\n    SELECT public.discord_permissions.*, permission_club.\"path-name\" as \"club_path\"\n    FROM public.club\n        INNER JOIN public.discord_permissions ON public.discord_permissions.club_id = public.club.id OR public.discord_permissions.club_id = 0\n        INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id\n        WHERE public.discord_permissions.discord_id = $1 AND public.club.\"path-name\" = $2\n        ORDER BY public.discord_permissions.club_id ASC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -167,11 +167,23 @@
             "name": "submit"
           }
         }
+      },
+      {
+        "ordinal": 15,
+        "name": "club_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "path-name"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -189,8 +201,9 @@
       false,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "eaf00945252ca759ee7002899f32bf37c908b7447d0b54759ce73758f1918d8c"
+  "hash": "a34ffce79e73ef5e01b6e8707224b2bda321a214b2ca25edf13d7c13c01a2805"
 }

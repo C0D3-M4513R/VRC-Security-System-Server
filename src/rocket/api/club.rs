@@ -5,6 +5,7 @@ use crate::rocket::auth::discord::JWT;
 
 pub mod image;
 pub mod publish;
+pub mod custom_json;
 pub mod code_replacements;
 pub mod vrcuser_level;
 pub mod club_name;
@@ -17,6 +18,8 @@ pub(crate) const CLUB_OWNERS:&str = "!CLUB-OWNERS";
 #[derive(Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]
 pub struct Permissions{
+    #[serde(default)]
+    pub club_path: String,
     #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub add_discord_user: bool,
     #[serde_as(as = "crate::serialization::bool::WebBool")]
@@ -51,6 +54,7 @@ pub struct Permissions{
 impl Default for Permissions {
     fn default() -> Self {
         Self {
+            club_path: String::new(),
             add_discord_user: false,
             remove_discord_user: false,
             update_club_name: false,
@@ -70,6 +74,7 @@ impl Default for Permissions {
 macro_rules! build_permission_from_res {
     ($name:ident) => {
         $crate::rocket::api::club::Permissions::new(
+            $name.club_path,
             $name.add_discord_user,
             $name.remove_discord_user,
             $name.update_club_name,
@@ -89,6 +94,7 @@ macro_rules! build_permission_from_res {
 pub(crate) use build_permission_from_res;
 impl Permissions {
     pub const fn new(
+        club_path: String,
         add_discord_user: bool,
         remove_discord_user: bool,
         update_club_name: bool,
@@ -104,6 +110,7 @@ impl Permissions {
         submit: bool,
     ) -> Self {
         Self{
+            club_path,
             add_discord_user,
             remove_discord_user,
             update_club_name,
@@ -124,8 +131,10 @@ impl Permissions {
         //Select 0, if a permission exists there, or from the club-perm
         //TODO: Not really a nice way of preferring the discord-permission of club_id 0 (if it exists) over the actual discord_permission with the actual club_id
         let res = sqlx::query!(r#"
-    SELECT public.discord_permissions.* FROM public.club
+    SELECT public.discord_permissions.*, permission_club."path-name" as "club_path"
+    FROM public.club
         INNER JOIN public.discord_permissions ON public.discord_permissions.club_id = public.club.id OR public.discord_permissions.club_id = 0
+        INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id
         WHERE public.discord_permissions.discord_id = $1 AND public.club."path-name" = $2
         ORDER BY public.discord_permissions.club_id ASC
         LIMIT 1
@@ -138,6 +147,7 @@ impl Permissions {
         };
 
         Ok(Some(Self{
+            club_path: res.club_path,
             add_discord_user: res.add_discord_user,
             remove_discord_user: res.remove_discord_user,
             update_club_name: res.update_club_name,

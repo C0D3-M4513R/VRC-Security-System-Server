@@ -55,8 +55,10 @@ pub async fn get_club<'r>(auth: State<JWT>, keypair: State<Keypair>) -> Response
     };
     let permission = match sqlx::query!(r#"
         SELECT
-            public.discord_permissions.*
+            public.discord_permissions.*,
+            permission_club."path-name" as "club_path"
         FROM public.discord_permissions
+        INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id
         WHERE public.discord_permissions.discord_id = $1 AND public.discord_permissions.club_id = 0
     "#, auth.get_user_id().cast_signed()).fetch_optional(&db)
         .await {

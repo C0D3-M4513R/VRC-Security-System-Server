@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT custom_json FROM club WHERE \"path-name\" = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "custom_json",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "club",
+            "name": "custom_json"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "24025831d733e2f5de68bec8643f87bc0a8011cbada6e8a9a604ccd08f283749"
+}

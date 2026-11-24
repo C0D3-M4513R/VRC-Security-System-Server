@@ -71,7 +71,7 @@ GROUP BY public.club_vrc_permission.permission_level
         let data = ClubOwner{
             club_owners: permissions,
         };
-        (serde_json::to_string(&data), None)
+        (serde_json::to_value(&data), None)
     } else {
         let res = match sqlx::query!(r#"
     WITH club_allowed_replace_name AS (
@@ -122,12 +122,37 @@ GROUP BY public.club_vrc_permission.permission_level
             clubnames_allowed_to_replace: res.allowed_replace.as_ref().map_or(&[], |v|v.as_slice()),
             permissions,
         };
-        (serde_json::to_string(&data), Some(res))
+        (serde_json::to_value(&data), Some(res))
     };
 
     let target_branch_name = format!("autopr/club/{club}");
     let commit_message = format!("Club {club} Update");
-    let data = match data {
+
+    let custom_json: Option<serde_json::Value> = {
+        sqlx::query_scalar!(
+            r#"SELECT custom_json FROM club WHERE "path-name" = $1"#,
+            club
+        )
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten()
+        .flatten()
+    };
+
+    let mut data = match data {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("Failed to serialize Club Security-List: {club} {e}");
+            return Response::Err(None, Cow::Borrowed("Could not serialize data"));
+        }
+    };
+
+    if let Some(custom) = custom_json {
+        merge_json(&mut data, custom);
+    }
+
+    let data = match serde_json::to_string(&data) {
         Ok(mut v) => {
             //Text editors by default save a trailing newline.
             //For ease of verification let's do that too.
@@ -253,4 +278,19 @@ GROUP BY public.club_vrc_permission.permission_level
     }
 
     Response::Redirect(None, redir.into())
+}
+
+fn merge_json(existing: &mut serde_json::Value, custom: serde_json::Value) {
+    match (existing, custom) {
+        (serde_json::Value::Object(existing_map), serde_json::Value::Object(custom_map)) => {
+            for (key, value) in custom_map {
+                if let Some(existing_value) = existing_map.get_mut(&key) {
+                    merge_json(existing_value, value);
+                } else {
+                    existing_map.insert(key, value);
+                }
+            }
+        }
+        _ => {}
+    }
 }

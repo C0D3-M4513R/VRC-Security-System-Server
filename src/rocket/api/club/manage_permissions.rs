@@ -12,6 +12,14 @@ pub async fn put_club_permission<'r>(auth: State<JWT>, path: actix_web::web::Pat
     process_club_permission(auth, &club, target_id, Some(data.into_inner())).await
 }
 async fn process_club_permission<'r>(auth: State<JWT>, club: &str, target_id: u64, data: Option<Permissions>) -> Response<actix_web::HttpResponse<core::convert::Infallible>> {
+    if let Some(data) = &data {
+        if data.club_path != club {
+            return Response::Error(Some(actix_web::http::StatusCode::BAD_REQUEST), AskamaWrapper(crate::modals::err::Err {
+                error: Cow::Borrowed("Club path mismatch"),
+                error_description: None,
+            }));
+        }
+    }
     let perms = match Permissions::get_from_db(target_id, club).await {
         Ok(perms) => perms,
         Err(_) => return Response::Error(None, AskamaWrapper(Err{

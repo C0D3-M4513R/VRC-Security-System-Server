@@ -10,4 +10,5 @@ pub struct ClubInstance {
     pub path_name: String,
     pub permissions: Permissions,
     pub limits: Limits,
+    pub custom_json: Option<String>,
 }

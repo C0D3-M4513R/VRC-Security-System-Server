@@ -17,9 +17,11 @@ pub async fn get_club_discord_permissions<'r>(auth: State<JWT>, limits: State<Li
             public.club.name as name,
             public.club.id as actual_club_id,
             public.club.code as code,
-            public.discord_permissions.*
+            public.discord_permissions.*,
+            permission_club."path-name" as "club_path"
         FROM club
             INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0
+            INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id
             WHERE public.discord_permissions.discord_id = $1 AND public.club."path-name" = $2
             ORDER BY public.discord_permissions.club_id
             LIMIT 1
@@ -43,9 +45,11 @@ pub async fn get_club_discord_permissions<'r>(auth: State<JWT>, limits: State<Li
     let discord_perms = match sqlx::query!(r#"
         SELECT
             public.discord_permissions.*,
+            permission_club."path-name" as "club_path",
             public.discord_info.username,
             public.discord_info.discriminator
         FROM public.discord_permissions
+            INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id
             INNER JOIN public.discord_info ON public.discord_info.user_id = public.discord_permissions.discord_id
             WHERE public.discord_permissions.club_id = $1
             ORDER BY public.discord_permissions.manage_permissions ASC
@@ -68,7 +72,8 @@ pub async fn get_club_discord_permissions<'r>(auth: State<JWT>, limits: State<Li
             code: res.code,
             path_name: res.path_name,
             permissions: perms,
-            limits: limits.clone()
+            limits: limits.clone(),
+            custom_json: None,
         },
         permissions: discord_perms.into_iter().map(|v|DiscordPermission{
             discord_id: v.discord_id.cast_unsigned(),

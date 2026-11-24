@@ -15,9 +15,11 @@ pub async fn get_club_instance<'r>(auth: State<JWT>, limits: State<Limits>, path
             public.club."path-name" as path_name,
             public.club.name as name,
             public.club.code as code,
-            public.discord_permissions.*
+            public.discord_permissions.*,
+            permission_club."path-name" as "club_path"
         FROM club
             INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0
+            INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id
             WHERE public.discord_permissions.discord_id = $1 AND public.club."path-name" = $2
             ORDER BY public.discord_permissions.club_id
             LIMIT 1
@@ -39,11 +41,26 @@ pub async fn get_club_instance<'r>(auth: State<JWT>, limits: State<Limits>, path
 
     let perms = build_permission_from_res!(res);
 
+    let custom_json = if perms.club_path == crate::rocket::api::club::CLUB_OWNERS && perms.manage_permissions.is_some() {
+        sqlx::query_scalar!(
+            r#"SELECT jsonb_pretty(custom_json) FROM club WHERE "path-name" = $1"#,
+            res.path_name
+        )
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten()
+        .flatten()
+    } else {
+        None
+    };
+
     Response::Ok(AskamaWrapper(ClubInstance{
         name: res.name,
         code: res.code,
         path_name: res.path_name,
         permissions: perms,
         limits: limits.clone(),
+        custom_json,
     }))
 }

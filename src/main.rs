@@ -192,6 +192,7 @@ async fn main_async(repo: git2::Repository, mk: Keypair) -> ::anyhow::Result<()>
                 rocket::api::club::vrcuser_level::put_vrcuser_level,
                 rocket::api::club::vrcuser_level::delete_vrcuser_level,
                 rocket::api::club::club_name::put_club_name,
+                rocket::api::club::custom_json::put_custom_json,
                 rocket::api::club::manage_permissions::put_club_permission,
                 rocket::api::club::manage_permissions::new_club_permission,
                 rocket::api::club::manage_permissions::delete_club_permission,
