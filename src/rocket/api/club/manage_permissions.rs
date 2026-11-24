@@ -40,13 +40,14 @@ async fn process_club_permission<'r>(auth: State<JWT>, club: &str, target_id: u6
 
     let db = crate::get_db().await;
     let table = match sqlx::query!(
-        "SELECT manage_permissions($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
+        "SELECT manage_permissions($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
         auth.get_user_id().cast_signed(),
         target_id.cast_signed(),
         club,
         data.as_ref().map(|v|v.add_discord_user).unwrap_or(false),
         data.as_ref().map(|v|v.remove_discord_user).unwrap_or(false),
         data.as_ref().map(|v|v.update_club_name).unwrap_or(false),
+        data.as_ref().map(|v|v.update_group_id).unwrap_or(false),
         data.as_ref().map(|v|v.add_allowed_code_replacements).unwrap_or(false),
         data.as_ref().map(|v|v.add_level).flatten(),
         data.as_ref().map(|v|v.update_logo).unwrap_or(false),

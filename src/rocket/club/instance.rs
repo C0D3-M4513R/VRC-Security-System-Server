@@ -15,6 +15,7 @@ pub async fn get_club_instance<'r>(auth: State<JWT>, limits: State<Limits>, path
             public.club."path-name" as path_name,
             public.club.name as name,
             public.club.code as code,
+            public.club.group_id as group_id,
             public.discord_permissions.*,
             permission_club."path-name" as "club_path"
         FROM club
@@ -63,6 +64,7 @@ pub async fn get_club_instance<'r>(auth: State<JWT>, limits: State<Limits>, path
             limits: limits.clone(),
         },
         code: res.code,
+        group_id: res.group_id,
         custom_json,
     }))
 }

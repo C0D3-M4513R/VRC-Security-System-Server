@@ -45,6 +45,7 @@
                 <label>Allowed to Add Discord Users (of higher Manage Permission Level):<input type="checkbox" name="add_discord_user" {% if permission.permission.add_discord_user %}checked{% endif %} {% if !information.permissions.add_discord_user %}disabled{% endif %}></label><br>
                 <label>Allowed to Remove Discord Users (of higher Manage Permission Level):<input type="checkbox" name="remove_discord_user" {% if permission.permission.remove_discord_user %}checked{% endif %} {% if !information.permissions.remove_discord_user %}disabled{% endif %}></label><br><br>
                 <label>Allowed to Update Club Name:<input type="checkbox" name="update_club_name" {% if permission.permission.update_club_name %}checked{% endif %} {% if !information.permissions.update_club_name %}disabled{% endif %}></label><br><br>
+                <label>Allowed to Update Group Id:<input type="checkbox" name="update_group_id" {% if permission.permission.update_group_id %}checked{% endif %} {% if !information.permissions.update_group_id %}disabled{% endif %}></label><br><br>
                 <label>Disable Adding VRC Names to the Permission List:<input type="checkbox" name="add_level" value="null"
                     {% match (permission.permission.add_level,information.permissions.add_level)  %}
                       {% when (None, None) %} checked disabled

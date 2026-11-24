@@ -41,6 +41,12 @@
     <input name="submit" type="submit" value="Change Club Name" {% if !info.permissions.update_club_name || info.path_name.starts_with("!") %}disabled{% endif %} >
   </form>
   <br>
+  <form method="post" action="../../api/club/{{info.path_name}}/group_id">
+    <input name="_method" type="hidden" value="put"/>
+    <label>Group-Id: <input name="group_id" type="text" value="{% if let Some(v) = group_id %}{{v}}{% endif %}" {% if !info.permissions.update_group_id %} disabled {% endif %}></label>
+    <input name="submit" type="submit" value="Change Group Id" {% if !info.permissions.update_group_id %}disabled{% endif %} >
+  </form>
+  <br>
   {% if info.permissions.club_path == "!CLUB-OWNERS" && info.permissions.manage_permissions.is_some() %}
   <h2>Custom JSON</h2>
   <form method="post" action="../../api/club/{{info.path_name}}/custom_json">

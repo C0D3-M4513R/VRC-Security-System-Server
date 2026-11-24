@@ -13,5 +13,6 @@ pub struct ClubInfo {
 pub struct ClubInstance {
     pub info: ClubInfo,
     pub code: i64,
+    pub group_id: Option<String>,
     pub custom_json: Option<String>,
 }

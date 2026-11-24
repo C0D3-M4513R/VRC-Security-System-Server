@@ -9,6 +9,7 @@ pub mod custom_json;
 pub mod code_replacements;
 pub mod vrcuser_level;
 pub mod club_name;
+pub mod group_id;
 pub mod manage_permissions;
 pub mod new;
 
@@ -26,6 +27,8 @@ pub struct Permissions{
     pub remove_discord_user: bool,
     #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub update_club_name: bool,
+    #[serde_as(as = "crate::serialization::bool::WebBool")]
+    pub update_group_id: bool,
     #[serde_as(as = "crate::serialization::bool::WebBool")]
     pub add_allowed_code_replacements: bool,
     #[serde_as(as = "::serde_with::NoneAsEmptyString")]
@@ -58,6 +61,7 @@ impl Default for Permissions {
             add_discord_user: false,
             remove_discord_user: false,
             update_club_name: false,
+            update_group_id: false,
             add_allowed_code_replacements: false,
             add_level: None,
             update_logo: false,
@@ -78,6 +82,7 @@ macro_rules! build_permission_from_res {
             $name.add_discord_user,
             $name.remove_discord_user,
             $name.update_club_name,
+            $name.update_group_id,
             $name.add_allowed_code_replacements,
             $name.add_level,
             $name.update_logo,
@@ -98,6 +103,7 @@ impl Permissions {
         add_discord_user: bool,
         remove_discord_user: bool,
         update_club_name: bool,
+        update_group_id: bool,
         add_allowed_code_replacements: bool,
         add_level: Option<i16>,
         update_logo: bool,
@@ -114,6 +120,7 @@ impl Permissions {
             add_discord_user,
             remove_discord_user,
             update_club_name,
+            update_group_id,
             add_allowed_code_replacements,
             add_level,
             update_logo,
@@ -151,6 +158,7 @@ impl Permissions {
             add_discord_user: res.add_discord_user,
             remove_discord_user: res.remove_discord_user,
             update_club_name: res.update_club_name,
+            update_group_id: res.update_group_id,
             add_allowed_code_replacements: res.add_allowed_code_replacements,
             add_level: res.add_level,
             update_logo: res.update_logo,
