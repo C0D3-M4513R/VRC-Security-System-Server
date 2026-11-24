@@ -170,6 +170,17 @@
       },
       {
         "ordinal": 15,
+        "name": "update_group_id",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_group_id"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
         "name": "club_path",
         "type_info": "Text",
         "origin": {
@@ -180,7 +191,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "username",
         "type_info": "Text",
         "origin": {
@@ -191,7 +202,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "discriminator",
         "type_info": "Int2",
         "origin": {
@@ -222,6 +233,7 @@
       false,
       true,
       true,
+      false,
       false,
       false,
       false,

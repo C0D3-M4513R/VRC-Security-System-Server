@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            public.club.\"path-name\" as path_name,\n            public.club.name as name,\n            public.club.id as actual_club_id,\n            public.club.code as code,\n            public.discord_permissions.*,\n            permission_club.\"path-name\" as \"club_path\"\n        FROM club\n            INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0\n            INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id\n            WHERE public.discord_permissions.discord_id = $1 AND public.club.\"path-name\" = $2\n            ORDER BY public.discord_permissions.club_id\n            LIMIT 1\n    ",
+  "query": "\n        SELECT\n            public.club.\"path-name\" as path_name,\n            public.club.name as name,\n            public.club.id as actual_club_id,\n            public.discord_permissions.*,\n            permission_club.\"path-name\" as \"club_path\"\n        FROM club\n            INNER JOIN public.discord_permissions on public.club.id = public.discord_permissions.club_id OR public.discord_permissions.club_id = 0\n            INNER JOIN public.club AS permission_club ON permission_club.id = public.discord_permissions.club_id\n            WHERE public.discord_permissions.discord_id = $1 AND public.club.\"path-name\" = $2\n            ORDER BY public.discord_permissions.club_id\n            LIMIT 1\n    ",
   "describe": {
     "columns": [
       {
@@ -38,17 +38,6 @@
       },
       {
         "ordinal": 3,
-        "name": "code",
-        "type_info": "Int8",
-        "origin": {
-          "Table": {
-            "table": "club",
-            "name": "code"
-          }
-        }
-      },
-      {
-        "ordinal": 4,
         "name": "club_id",
         "type_info": "Int8",
         "origin": {
@@ -59,7 +48,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "discord_id",
         "type_info": "Int8",
         "origin": {
@@ -70,7 +59,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "add_discord_user",
         "type_info": "Bool",
         "origin": {
@@ -81,7 +70,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "remove_discord_user",
         "type_info": "Bool",
         "origin": {
@@ -92,7 +81,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "update_club_name",
         "type_info": "Bool",
         "origin": {
@@ -103,7 +92,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "add_allowed_code_replacements",
         "type_info": "Bool",
         "origin": {
@@ -114,7 +103,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "add_level",
         "type_info": "Int2",
         "origin": {
@@ -125,7 +114,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 10,
         "name": "update_logo",
         "type_info": "Bool",
         "origin": {
@@ -136,7 +125,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "update_poster1",
         "type_info": "Bool",
         "origin": {
@@ -147,7 +136,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 12,
         "name": "update_poster2",
         "type_info": "Bool",
         "origin": {
@@ -158,7 +147,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 13,
         "name": "update_poster3",
         "type_info": "Bool",
         "origin": {
@@ -169,7 +158,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 14,
         "name": "remove_allowed_code_replacements",
         "type_info": "Bool",
         "origin": {
@@ -180,7 +169,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 15,
         "name": "remove_level",
         "type_info": "Int2",
         "origin": {
@@ -191,7 +180,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 16,
         "name": "manage_permissions",
         "type_info": "Int4",
         "origin": {
@@ -202,13 +191,24 @@
         }
       },
       {
-        "ordinal": 18,
+        "ordinal": 17,
         "name": "submit",
         "type_info": "Bool",
         "origin": {
           "Table": {
             "table": "discord_permissions",
             "name": "submit"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "update_group_id",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "discord_permissions",
+            "name": "update_group_id"
           }
         }
       },
@@ -240,7 +240,6 @@
       false,
       false,
       false,
-      false,
       true,
       false,
       false,
@@ -249,9 +248,10 @@
       false,
       true,
       true,
+      false,
       false,
       false
     ]
   },
-  "hash": "2a5c268151d736eace8e16d477842e86681b8a4ee67eb96745f339b1f3a6570e"
+  "hash": "6a0313d3f9cab7ca42fa6f42f152f8a3641a0758e1b22e12186838883d86cb5e"
 }
